@@ -35,27 +35,6 @@ enum BOARD_STATUS
     BS_MISSING        //Nobody responded
 };
 
-void serialSpecialInit(Usart *pUsart, uint32_t baudRate)
-{
-  // Reset and disable receiver and transmitter
-  pUsart->US_CR = UART_CR_RSTRX | UART_CR_RSTTX | UART_CR_RXDIS | UART_CR_TXDIS;
-
-  // Configure mode
-  pUsart->US_MR =  US_MR_USART_MODE_NORMAL | US_MR_USCLKS_MCK | US_MR_CHMODE_NORMAL | US_MR_OVER; // | US_MR_INVDATA;
-
-  //Get the integer divisor that can provide the baud rate
-  int divisor = SystemCoreClock / baudRate;
-  int error1 = abs(baudRate - (SystemCoreClock / divisor)); //find out how close that is to the real baud
-  int error2 = abs(baudRate - (SystemCoreClock / (divisor + 1))); //see if bumping up one on the divisor makes it a better match
-
-  if (error2 < error1) divisor++;   //If bumping by one yielded a closer rate then use that instead
-
-  // Configure baudrate including the optional fractional divisor possible on USART
-  pUsart->US_BRGR = (divisor >> 3) | ((divisor & 7) << 16);
-
-  // Enable receiver and transmitter
-  pUsart->US_CR = UART_CR_RXEN | UART_CR_TXEN;
-}
 
 uint8_t genCRC(uint8_t *input, int lenInput)
 {
@@ -84,28 +63,32 @@ uint8_t genCRC(uint8_t *input, int lenInput)
 
 void sendData(uint8_t *data, uint8_t dataLen, bool isWrite)
 {
-    if (isWrite) data[0] = data[0] | 1;
-    Serial1.write(data, dataLen);
-    if (isWrite) Serial1.write(genCRC(data, dataLen));
-
-    SerialUSB.print("Sending: ");
-    for (int x = 0; x < dataLen; x++) {
-        SerialUSB.print(data[x], HEX);
-        SerialUSB.print(" ");
+    if (isWrite)
+    {
+      data[0] = data[0] | 1;
     }
-    SerialUSB.println(genCRC(data, dataLen), HEX);
+    Serial3.write(data, dataLen);
+    if (isWrite) Serial3.write(genCRC(data, dataLen));
+
+    Serial.print("Sending: ");
+    for (int x = 0; x < dataLen; x++) {
+        Serial.print(data[x], HEX);
+        Serial.print(" ");
+    }
+    Serial.println(genCRC(data, dataLen), HEX);
 }
 
 int getReply(uint8_t *data)
 {  
     int numBytes = 0; 
-    SerialUSB.print("Reply: ");
-    while (Serial1.available())
+    Serial.print("Reply: ");
+    while (Serial3.available())
     {
-        SerialUSB.print(Serial1.read(), HEX);
+      data[numBytes]=Serial3.read();
+        Serial.print(data[numBytes], HEX);
         numBytes++;
     }
-    SerialUSB.println();
+    Serial.println();
     return numBytes;
 }
 
@@ -217,23 +200,42 @@ bool getModuleVoltage(uint8_t address)
 void setup() 
 {
     delay(4000);
-    Serial1.begin(612500);
+    Serial3.begin(612500);
+    Serial.begin(115200);
     //serialSpecialInit(USART0, 612500);
-    SerialUSB.println("Fired up serial at 612500 baud!");
+    Serial.println("Fired up serial at 612500 baud!");
     for (int x = 0; x < 64; x++) boards[x] = BS_STARTUP;
+    //setupBoards();
     findBoards();
+    for (int x = 0; x < 64; x++) Serial.println(boards[x]);
+     
 }
 
 void loop() 
 {
     uint8_t payload[8];
     uint8_t buff[30];
-    payload[0] = 2;
-    payload[1] = 0x30;
-    payload[2] = 0b00111101;
-    sendData(payload, 3, true);
-    delay(3);
-    getReply(buff);
-    delay(200);
+    //payload[0] = 2;
+    //payload[1] = 0x30;
+    //payload[2] = 0b00111101;
+    //sendData(payload, 3, true);
+    //delay(3);
+    //getReply(buff);
+    delay(500);
+    getModuleVoltage(1);
+    Serial.println(moduleVolt[0]);
+    Serial.println();
+    for (int x = 0; x < 6; x++) 
+    {
+      Serial.print(cellVolt[0][x]); 
+      Serial.print(", ");
+    }
+    Serial.println();
+    Serial.print(temperatures[0][0]);
+    Serial.print(", ");
+    Serial.print(temperatures[0][1]);
+    Serial.println();
+   
+    
 }
 
