@@ -201,7 +201,7 @@ bool getModuleVoltage(uint8_t address)
     delay(2);
     if (getReply(buff) > 0x13)
     {
-        if (buff[0] == (address << 1) && buff[1] == REG_ADC_CTRL && buff[2] == 0x12)
+        if (buff[0] == (address << 1) && buff[1] == REG_GPAI  && buff[2] == 0x12)
         {
             //payload is 2 bytes gpai, 2 bytes for each of 6 cell voltages, 2 bytes for each of two temperatures (18 bytes of data)
             moduleVolt[address - 1] = (buff[3] * 256 + buff[4]) * 0.002034609f;
