@@ -115,7 +115,7 @@ void setupBoards()
         delay(3);
         if (getReply(buff) > 2)
         {
-            if (buff[0] == 0x81 && buff[1] == 0 && buff[2] == 0)
+            if (buff[0] == 0x80 && buff[1] == 0 && buff[2] == 0)
             {
                 //look for a free address to use
                 for (int y = 0; y < 63; y++) 
@@ -154,10 +154,10 @@ void findBoards()
         payload[0] = x << 1;
         sendData(payload, 3, false);
         delay(2);
-        if (getReply(buff) > 4)
+        if (getReply(buff) > 1)
         {
-            if (buff[0] == (x << 1) && buff[1] == 0 && buff[2] == 1) boards[x] = BS_FOUND;
-            else boards[x] = BS_MISSING;
+            if (buff[0] == (x << 1) && buff[1] == 0 && buff[2] == 1) boards[x] = BS_MISSING;
+            else boards[x] = BS_FOUND;
         }
     }
 }
