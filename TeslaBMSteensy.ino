@@ -28,6 +28,10 @@ uint16_t temperatures[63][2];   // Storage for temperature readings
 uint8_t serBuff[128];
 uint8_t boards[63];
 
+uint8_t actboards = 0;     // Number of active boards/slaves
+
+uint8_t decodeuart = 0;    // Transfer uart data to serial output
+
 enum BOARD_STATUS 
 {
     BS_STARTUP,       //Haven't tried to find this ID yet
@@ -70,27 +74,31 @@ void sendData(uint8_t *data, uint8_t dataLen, bool isWrite)
     Serial3.write(data, dataLen);
     if (isWrite) Serial3.write(genCRC(data, dataLen));
 
+    if (decodeuart == 1) 
+    {
     Serial.print("Sending: ");
     for (int x = 0; x < dataLen; x++) {
         Serial.print(data[x], HEX);
         Serial.print(" ");
     }
     Serial.println(genCRC(data, dataLen), HEX);
+    }
 }
 
 int getReply(uint8_t *data)
 {  
     int numBytes = 0; 
-    Serial.print("Reply: ");
+    if (decodeuart == 1)Serial.print("Reply: ");
     while (Serial3.available())
     {
       data[numBytes]=Serial3.read();
-        Serial.print(data[numBytes], HEX);
+        if (decodeuart == 1)Serial.print(data[numBytes], HEX);
         numBytes++;
     }
-    Serial.println();
+    if (decodeuart == 1)Serial.println();
     return numBytes;
 }
+
 
 /*
  * Try to set up any unitialized boards. Send a command to address 0 and see if there is a response. If there is then there is
@@ -117,13 +125,13 @@ void setupBoards()
         {
             if (buff[0] == 0x80 && buff[1] == 0 && buff[2] == 0)
             {
-              Serial.println("00 found");
+               if (decodeuart == 1)Serial.println("00 found");
                 //look for a free address to use
                 for (int y = 0; y < 63; y++) 
                 {
                     if (boards[y] == BS_MISSING)
                     {
-                      Serial.println("00 found");
+                      if (decodeuart == 1)Serial.println("00 found");
                         payload[0] = 0;
                         payload[1] = REG_ADDR_CTRL;
                         payload[2] = y | 0x80;
@@ -136,7 +144,7 @@ void setupBoards()
                               boards[y] = BS_FOUND; //Success!
                               actboards++;
                             }
-                            Serial.println("Adress assigned");
+                            if (decodeuart == 1)Serial.println("Adress assigned");
                         }
                         break; //quit the for loop
                     }
@@ -229,14 +237,19 @@ void loop()
       if (boards[y] == BS_FOUND)
       {
         getModuleVoltage(y);
-        Serial.println(moduleVolt[y-1]);
         Serial.println();
+        Serial.print("Slave Address ");
+        Serial.println(y);
+        Serial.print("Module voltage: ");
+        Serial.println(moduleVolt[y-1]);
+        Serial.print("Cell voltages: ");
         for (int x = 0; x < 6; x++) 
         {
           Serial.print(cellVolt[y-1][x]); 
           Serial.print(", ");
         }
         Serial.println();
+        Serial.print("Temperatures : ");
         Serial.print(temperatures[y-1][0]);
         Serial.print(", ");
         Serial.print(temperatures[y-1][1]);
