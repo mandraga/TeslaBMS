@@ -117,11 +117,13 @@ void setupBoards()
         {
             if (buff[0] == 0x80 && buff[1] == 0 && buff[2] == 0)
             {
+              Serial.println("00 found");
                 //look for a free address to use
                 for (int y = 0; y < 63; y++) 
                 {
                     if (boards[y] == BS_MISSING)
                     {
+                      Serial.println("00 found");
                         payload[0] = 0;
                         payload[1] = REG_ADDR_CTRL;
                         payload[2] = y | 0x80;
@@ -129,13 +131,18 @@ void setupBoards()
                         delay(3);
                         if (getReply(buff) > 2)
                         {
-                            if (buff[0] == (y << 1) && buff[1] == REG_ADDR_CTRL && buff[2] == (y | 0x80)) boards[y] = BS_FOUND; //Success!
+                            if (buff[0] == (y << 1) && buff[1] == REG_ADDR_CTRL && buff[2] == (y | 0x80))
+                            {
+                              boards[y] = BS_FOUND; //Success!
+                              actboards++;
+                            }
+                            Serial.println("Adress assigned");
                         }
                         break; //quit the for loop
                     }
                 }
             }
-            else return; //nobody responded properly to the zero address so our work here is done.
+            else break; //nobody responded properly to the zero address so our work here is done.
         }
     }
 }
@@ -154,11 +161,11 @@ void findBoards()
         payload[0] = x << 1;
         sendData(payload, 3, false);
         delay(2);
-        if (getReply(buff) > 1)
+        if (getReply(buff) > 4)
         {
-            if (buff[0] == (x << 1) && buff[1] == 0 && buff[2] == 1) boards[x] = BS_MISSING;
-            else boards[x] = BS_FOUND;
+            if (buff[0] == (x << 1) && buff[1] == 0 && buff[2] == 1 && buff[4] > 0) boards[x] = BS_FOUND;
         }
+        else boards[x] = BS_MISSING;
     }
 }
 
@@ -215,27 +222,26 @@ void loop()
 {
     uint8_t payload[8];
     uint8_t buff[30];
-    //payload[0] = 2;
-    //payload[1] = 0x30;
-    //payload[2] = 0b00111101;
-    //sendData(payload, 3, true);
-    //delay(3);
-    //getReply(buff);
     delay(500);
-    getModuleVoltage(1);
-    Serial.println(moduleVolt[0]);
-    Serial.println();
-    for (int x = 0; x < 6; x++) 
+
+    for (int y = 0; y < 63; y++) 
     {
-      Serial.print(cellVolt[0][x]); 
-      Serial.print(", ");
-    }
-    Serial.println();
-    Serial.print(temperatures[0][0]);
-    Serial.print(", ");
-    Serial.print(temperatures[0][1]);
-    Serial.println();
-   
-    
+      if (boards[y] == BS_FOUND)
+      {
+        getModuleVoltage(y);
+        Serial.println(moduleVolt[y-1]);
+        Serial.println();
+        for (int x = 0; x < 6; x++) 
+        {
+          Serial.print(cellVolt[y-1][x]); 
+          Serial.print(", ");
+        }
+        Serial.println();
+        Serial.print(temperatures[y-1][0]);
+        Serial.print(", ");
+        Serial.print(temperatures[y-1][1]);
+        Serial.println();
+       }
+    } 
 }
 
