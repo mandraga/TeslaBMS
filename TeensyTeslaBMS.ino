@@ -15,10 +15,12 @@ const int ACUR1 = A0; // current 1
 const int ACUR2 = A1; // current 2
 const int IN1 = 16; // input 1 - high active
 const int IN2 = 17; // input 2- high active
-const int OUT1 = 23;// output 1 - high active
-const int OUT2 = 22;// output 1 - high active
-const int OUT3 = 21;// output 1 - high active
-const int OUT4 = 20;// output 1 - high active
+const int OUT1 = 20;// output 1 - high active
+const int OUT2 = 21;// output 1 - high active
+const int OUT3 = 23;// output 1 - high active
+const int OUT4 = 24;// output 1 - high active
+const int OUT5 = 3;// output 1 - high active
+const int OUT6 = 4;// output 1 - high active
 const int FUEL = 5;// Fuel gauge pwm signal
 const int led = 13;
 
@@ -34,6 +36,17 @@ byte bmsstatus = 0;
 
 int Discharge;
 
+//variables for output control
+int pulltime = 1000;
+int contctrl, contstat = 0; //1 = out 5 high 2 = out 6 high 3 = both high
+unsigned long conttimer, Pretimer = 0;
+int Pretime = 5000; //precharge timer
+int conthold = 50; //holding duty cycle for contactor 0-255
+int Precurrent = 1000; //ma before closing main contator
+
+int gaugelow = 255; //empty fuel gauge pwm
+int gaugehigh = 70; //full fuel gauge pwm
+
 //variables for VE driect bus comms
 char* myStrings[]={"V","14674","I","0","CE","-1","SOC","800","TTG","-1","Alarm","OFF","Relay","OFF","AR","0","BMV","600S","FW","212","H1","-3","H2","-3","H3","0","H4","0","H5","0","H6","-7","H7","13180","H8","14774","H9","137","H10","0","H11","0","H12","0"};
 
@@ -46,6 +59,10 @@ unsigned long lasttime;
 unsigned long looptime;
 int currentsense = 14;
 int sensor = 1;
+
+//Variables for SOC calc
+int SOC = 100; //State of Charge
+int CAP = 1; //battery size in Ah
 
 //variables
 int incomingByte = 0;
@@ -86,7 +103,9 @@ void setup()
     pinMode(OUT1, OUTPUT); // drive contactor
     pinMode(OUT2, OUTPUT); // precharge
     pinMode(OUT3, OUTPUT); // charge relay
-    pinMode(OUT4, OUTPUT);
+    pinMode(OUT4, OUTPUT); // Negative contactor
+    pinMode(OUT5, OUTPUT); // pwm driver output
+    pinMode(OUT6, OUTPUT); // pwm driver output
     pinMode(FUEL, OUTPUT);
     pinMode(led, OUTPUT);
     
@@ -130,6 +149,8 @@ void loop()
   {
     menu();
   }
+
+  contcon();
    
   switch (bmsstatus)
   {
@@ -151,7 +172,7 @@ void loop()
        }
        if (bms.getLowVoltage() < settings.UnderVSetpoint);
        {
-        bmsstatus = Error;
+        //bmsstatus = Error;
        }
        if (digitalRead(IN2)== HIGH && (settings.balanceVoltage+settings.balanceHyst) > bms.getHighVoltage())//detect AC present for charging and check not balancing
        {
@@ -160,12 +181,36 @@ void loop()
        if (digitalRead(IN1)== HIGH)//detect Key ON
        {
         bmsstatus = Precharge;
+        Pretimer = millis();
        }
        
        break;
-    
+       
+      case (Precharge):
+       Discharge = 0;
+       Prechargecon();    
+       break;   
+           
+      
      case (Drive):
        Discharge = 1;
+       if (bms.getHighVoltage() > settings.OverVSetpoint);
+       {
+        //bmsstatus = Error;
+       }
+       if (bms.getLowVoltage() < settings.UnderVSetpoint);
+       {
+        //bmsstatus = Error;
+       }
+       if (digitalRead(IN1) == LOW)//Key OFF
+       {
+        digitalWrite(OUT4, LOW);
+        digitalWrite(OUT1, LOW);
+        
+        contctrl = 0; //turn off out 5 and 6
+        bmsstatus = Ready;
+       }
+       
        break;
 
      case (Charge):
@@ -189,6 +234,7 @@ void loop()
 
      case (Error):
        Discharge = 0;
+       
        if (digitalRead(IN2)== HIGH)//detect AC present for charging
        {
         bmsstatus = Charge;
@@ -201,13 +247,71 @@ void loop()
     looptime = millis();
     getcurrent();
     bms.getAllVoltTemp();
-    if (debug != 0){bms.printPackDetails();}
+    if (debug != 0)
+    {
+      printbmsstat();
+      bms.printPackDetails();
+    }
     BMVmessage();
+    gaugeupdate();
   }  
 }
 
+void gaugeupdate()
+{
+  analogWrite(FUEL,map(SOC,0,100,gaugelow,gaugehigh));
+  if (debug != 0)
+   {
+  SERIALCONSOLE.println("  ");
+  SERIALCONSOLE.print("fuel pwm : ");  
+  SERIALCONSOLE.print(map(SOC,0,100,gaugelow,gaugehigh));
+  SERIALCONSOLE.println("  ");
+   }
+}
 
+void printbmsstat()
+{
+  SERIALCONSOLE.println();
+  SERIALCONSOLE.println();
+  SERIALCONSOLE.println();
+  SERIALCONSOLE.print("BMS Status : ");  
+  SERIALCONSOLE.print(bmsstatus); 
+    switch (bmsstatus)
+  {
+     case (Boot):
+      SERIALCONSOLE.print(" Boot "); 
+     break;
 
+     case (Ready):
+      SERIALCONSOLE.print(" Ready "); 
+     break;
+
+     case (Precharge):
+      SERIALCONSOLE.print(" Precharge "); 
+     break;
+
+     case (Drive):
+      SERIALCONSOLE.print(" Drive "); 
+     break;
+
+     case (Charge):
+      SERIALCONSOLE.print(" Charge "); 
+     break;
+
+     case (Error):
+      SERIALCONSOLE.print(" Error "); 
+     break;
+  }
+  SERIALCONSOLE.print("  "); 
+  if (digitalRead(IN2)== HIGH)
+  {
+    SERIALCONSOLE.print("| AC Present |"); 
+  }
+    if (digitalRead(IN1)== HIGH)
+  {
+    SERIALCONSOLE.print("| Key ON |"); 
+  }
+}
 
 
 void getcurrent()
@@ -292,11 +396,99 @@ if (sensor == 2)
       lasttime = millis();
     }
 }
+
+SOC = (1-((ampsecond*0.27777777777778)/(CAP*1000)))*100;
+  
    if (debug != 0)
    {
+    SERIALCONSOLE.print(SOC);
+    SERIALCONSOLE.print("% SOC ");
     SERIALCONSOLE.print(ampsecond*0.27777777777778,2);
     SERIALCONSOLE.println ("mAh");
+    
    }
+   
+}
+
+void Prechargecon()
+{
+       if (digitalRead(IN1)== HIGH)//detect Key ON
+       {
+         digitalWrite(OUT4, HIGH);//Negative Contactor Close
+         contctrl = 2;
+       if (Pretimer+Pretime > millis() || currentact > Precurrent)
+       {
+        digitalWrite(OUT2, HIGH);//precharge 
+       }
+       else //close main contactor
+       {
+        digitalWrite(OUT1, HIGH);//Positive Contactor Close
+        contctrl = 3;
+        bmsstatus = Drive;
+        digitalWrite(OUT2, LOW);
+       }
+       }
+       else
+       {
+        bmsstatus = Ready;
+        contctrl = 0;
+       }
+}
+
+void contcon()
+{
+  if(contctrl != contstat) //check for contactor request change
+  {
+    if((contctrl & 1) == 0)
+    {
+      analogWrite(OUT5,0);
+      contstat = contstat & 254;
+    }
+    if((contctrl & 2) == 0)
+    {
+      analogWrite(OUT6,0);
+      contstat = contstat & 253;
+    }
+
+    if((contctrl & 1) == 1)
+    {
+      if (conttimer == 0)
+      {
+        analogWrite(OUT5,255);
+        conttimer = millis() + pulltime ;
+      }
+      if (conttimer < millis())
+      {
+        analogWrite(OUT5,conthold);
+        contstat = contstat | 1;
+        conttimer = 0;               
+      }
+    }
+   
+    if((contctrl & 2) == 2)
+    {
+      if (conttimer == 0)
+      {
+        analogWrite(OUT6,255);
+        conttimer = millis() + pulltime ;
+      }
+      if (conttimer < millis())
+      {
+        analogWrite(OUT6,conthold);
+        contstat = contstat | 2;
+        conttimer = 0;
+      }
+    }
+ /*   
+    SERIALCONSOLE.print(conttimer);
+    SERIALCONSOLE.print("  ");
+    SERIALCONSOLE.print(contctrl);
+    SERIALCONSOLE.print("  ");
+    SERIALCONSOLE.print(contstat);
+    SERIALCONSOLE.println("  ");
+*/
+ 
+  }
 }
 
 void calcur()
@@ -315,7 +507,7 @@ void calcur()
          x = 0;
 }
 
-void BMVmessage()
+void BMVmessage()//communication with the Victron Color Control System over VEdirect
 {
   lasttime = millis();
   x =0;
@@ -323,13 +515,23 @@ void BMVmessage()
   VE.write(10);
   VE.write(myStrings[0]);
   VE.write(9); 
-  VE.print(bms.getPackVoltage()*1000);
+  VE.print(bms.getPackVoltage()*1000,0);
   VE.write(13);
   VE.write(10);
   VE.write(myStrings[2]);
   VE.write(9); 
-  VE.print(currentact);  
-  x =4;
+  VE.print(currentact);
+  VE.write(13);
+  VE.write(10);
+  VE.write(myStrings[4]);
+  VE.write(9); 
+  VE.print(ampsecond*0.27777777777778,0);//consumed ah
+  VE.write(13);
+  VE.write(10);
+  VE.write(myStrings[6]);
+  VE.write(9); 
+  VE.print(SOC*10);//SOC   
+  x =8;
   while(x < 20)
   {
     VE.write(13);
@@ -346,6 +548,7 @@ void BMVmessage()
   VE.write(9);
   VE.write(0x50); //0x59
 delay(10);
+
   while(x < 44)
   {
     VE.write(13);
@@ -356,6 +559,30 @@ delay(10);
     VE.write(myStrings[x]);
     x ++;
   }
+ /* 
+  VE.write(13);
+  VE.write(10);
+  VE.write(myStrings[32]);
+  VE.write(9); 
+  VE.print(bms.getLowVoltage()*1000,0);  
+  VE.write(13);
+  VE.write(10);
+  VE.write(myStrings[34]);
+  VE.write(9); 
+  VE.print(bms.getHighVoltage()*1000,0);  
+  x=36;
+  
+  while(x < 43)
+  {
+    VE.write(13);
+    VE.write(10);
+    VE.write(myStrings[x]);
+    x ++;
+    VE.write(9); 
+    VE.write(myStrings[x]);
+    x ++;
+  }  
+  */
   VE.write(13);
   VE.write(10);
   VE.write("Checksum");
@@ -363,6 +590,7 @@ delay(10);
   VE.write(231);
 }
 
+// Settings menu
 void menu()
 {
     
@@ -416,20 +644,27 @@ void menu()
         incomingByte = 115;
         break;
         
+        case 102: //f factory settings
+        loadSettings();
+        SERIALCONSOLE.println("  ");
+        SERIALCONSOLE.println("  ");
+        break;
+        
         case 114: //r for reset
           ampsecond =0;
           SERIALCONSOLE.println("  ");
           SERIALCONSOLE.print(" mAh Zeroed ");
           SERIALCONSOLE.println("  ");
         break;
+        
         case 100: //d dispaly settings
           SERIALCONSOLE.println("  ");
           SERIALCONSOLE.println("  ");
-          SERIALCONSOLE.print(settings.OverVSetpoint);
-          SERIALCONSOLE.print(" Over Voltage Setpoint - 1 ");
+          SERIALCONSOLE.print(settings.OverVSetpoint*1000,0);
+          SERIALCONSOLE.print("mV Over Voltage Setpoint - 1 ");
           SERIALCONSOLE.println("  ");
-          SERIALCONSOLE.print(settings.UnderVSetpoint);
-          SERIALCONSOLE.print(" Under Voltage Setpoint - 2");
+          SERIALCONSOLE.print(settings.UnderVSetpoint*1000,0);
+          SERIALCONSOLE.print("mV Under Voltage Setpoint - 2");
           SERIALCONSOLE.println("  ");
           SERIALCONSOLE.print(settings.OverTSetpoint);
           SERIALCONSOLE.print(" Over Temperature Setpoint - 3");
@@ -437,13 +672,88 @@ void menu()
           SERIALCONSOLE.print(settings.UnderTSetpoint);
           SERIALCONSOLE.print(" Under Temperature Setpoint - 4");
           SERIALCONSOLE.println("  ");
-          SERIALCONSOLE.print(settings.balanceVoltage);
-          SERIALCONSOLE.print(" Balacne Voltage Setpoint - 5 ");
+          SERIALCONSOLE.print(settings.balanceVoltage*1000,0);
+          SERIALCONSOLE.print("mV Balance Voltage Setpoint - 5 ");
           SERIALCONSOLE.println("  ");
-          SERIALCONSOLE.print(settings.balanceHyst);
-          SERIALCONSOLE.print(" Balance Voltage Hystersis - 6 ");
+          SERIALCONSOLE.print(settings.balanceHyst*1000,0);
+          SERIALCONSOLE.print("mV Balance Voltage Hystersis - 6 ");
           SERIALCONSOLE.println("  ");
+          SERIALCONSOLE.print(CAP);
+          SERIALCONSOLE.print("Ah Battery Capacity - 7 ");
+          SERIALCONSOLE.println("  ");           
         break;
+        case 101: //e dispaly settings
+        SERIALCONSOLE.println("  ");
+        SERIALCONSOLE.println("Enter Variable Number and New value ");
+        SERIALCONSOLE.println("  ");
+        break;
+
+        case 49: //1 Over Voltage Setpoint
+        if (Serial.available() > 0)
+         {
+          settings.OverVSetpoint = Serial.parseInt();
+          settings.OverVSetpoint = settings.OverVSetpoint/1000;
+          SERIALCONSOLE.print(settings.OverVSetpoint*1000,0);
+          SERIALCONSOLE.print("mV Over Voltage Setpoint");
+         }
+        break;
+
+        case 50: //2 Under Voltage Setpoint
+        if (Serial.available() > 0)
+         {
+         settings.UnderVSetpoint = Serial.parseInt();
+          settings.UnderVSetpoint =  settings.UnderVSetpoint/1000;
+          SERIALCONSOLE.print(settings.UnderVSetpoint*1000,0);
+          SERIALCONSOLE.print("mV Over Voltage Setpoint");
+         }
+        break;
+
+        case 51: //3 Over Temperature Setpoint
+        if (Serial.available() > 0)
+         {
+          settings.OverTSetpoint = Serial.parseInt();
+          SERIALCONSOLE.print(settings.OverTSetpoint);
+          SERIALCONSOLE.print(" Over Temperature Setpoint");
+         }
+        break;  
+             
+        case 52: //4 Udner Temperature Setpoint
+        if (Serial.available() > 0)
+         {
+          settings.UnderTSetpoint = Serial.parseInt();
+          SERIALCONSOLE.print(settings.UnderTSetpoint);
+          SERIALCONSOLE.print(" Under Temperature Setpoint");
+         }
+        break; 
+        
+        case 53: //5 Balance Voltage Setpoint
+        if (Serial.available() > 0)
+         {
+         settings.balanceVoltage = Serial.parseInt();
+          settings.balanceVoltage = settings.balanceVoltage/1000;
+          SERIALCONSOLE.print(settings.balanceVoltage*1000,0);
+          SERIALCONSOLE.print("mV Balance Voltage Setpoint");
+         }
+        break;
+        
+        case 54: //6 Balance Voltage Hystersis
+        if (Serial.available() > 0)
+         {
+         settings.balanceHyst = Serial.parseInt();
+          settings.balanceHyst =  settings.balanceHyst/1000;
+          SERIALCONSOLE.print(settings.balanceHyst*1000,0);
+          SERIALCONSOLE.print("mV Balance Voltage Hystersis");
+         }
+        break;
+        
+        case 55://7 Battery Capacity inAh
+        if (Serial.available() > 0)
+         {
+          CAP = Serial.parseInt();
+          SERIALCONSOLE.print(CAP);
+          SERIALCONSOLE.print("Ah Battery Capacity");
+         }
+        break;      
       }
     }
     
@@ -479,6 +789,7 @@ void menu()
         SERIALCONSOLE.println("Battery Settings Menu");
         SERIALCONSOLE.println("r - Reset AH counter");
         SERIALCONSOLE.println("d - Display settings");
+        SERIALCONSOLE.println("e - Edit settings");        
         SERIALCONSOLE.println("q - Go back to menu");
         menuload = 3;
       break;
