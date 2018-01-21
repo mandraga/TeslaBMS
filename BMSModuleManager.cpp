@@ -29,7 +29,7 @@ void BMSModuleManager::balanceCells()
         balance = 0;
         for (int i = 0; i < 6; i++)
         {
-            if (settings.balanceVoltage < modules[address].getCellVoltage(i))
+            if (getLowCellVolt() < modules[address].getCellVoltage(i))
             {
                 balance = balance | (1<<i);
             }
@@ -297,6 +297,19 @@ void BMSModuleManager::getAllVoltTemp()
         if (isFaulted) Logger::info("All modules have exited a faulted state");
         isFaulted = false;
     }
+}
+
+float BMSModuleManager::getLowCellVolt()
+{
+  LowCellVolt = 5.0;
+    for (int x = 1; x <= MAX_MODULE_ADDR; x++)
+    {
+        if (modules[x].isExisting()) 
+        {
+           if (modules[x].getLowCellV() <  LowCellVolt)  LowCellVolt = modules[x].getLowCellV(); 
+        }
+    }
+    return LowCellVolt;
 }
 
 float BMSModuleManager::getPackVoltage()

@@ -24,6 +24,7 @@ public:
     float getPackVoltage();
     float getAvgTemperature();
     float getAvgCellVolt();
+    float getLowCellVolt();
     float getHighVoltage();
     float getLowVoltage();
     /*
@@ -35,6 +36,7 @@ public:
 
 private:
     float packVolt;                         // All modules added together
+    float LowCellVolt;
     float lowestPackVolt;
     float highestPackVolt;
     float lowestPackTemp;
