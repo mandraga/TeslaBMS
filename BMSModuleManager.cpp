@@ -288,7 +288,7 @@ void BMSModuleManager::getAllVoltTemp()
     if (packVolt > highestPackVolt) highestPackVolt = packVolt;
     if (packVolt < lowestPackVolt) lowestPackVolt = packVolt;
     
-    if (digitalRead(13) == LOW) {
+    if (digitalRead(11) == LOW) {
         if (!isFaulted) Logger::error("One or more BMS modules have entered the fault state!");
         isFaulted = true;
     }
@@ -310,6 +310,19 @@ float BMSModuleManager::getLowCellVolt()
         }
     }
     return LowCellVolt;
+}
+
+float BMSModuleManager::getHighCellVolt()
+{
+  HighCellVolt = 5.0;
+    for (int x = 1; x <= MAX_MODULE_ADDR; x++)
+    {
+        if (modules[x].isExisting()) 
+        {
+           if (modules[x].getHighCellV() <  HighCellVolt)  HighCellVolt = modules[x].getHighCellV(); 
+        }
+    }
+    return HighCellVolt;
 }
 
 float BMSModuleManager::getPackVoltage()
