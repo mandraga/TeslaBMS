@@ -26,7 +26,6 @@ const int OUT5 = 3;// output 1 - high active
 const int OUT6 = 4;// output 1 - high active
 const int FUEL = 5;// Fuel gauge pwm signal
 const int led = 13;
-const int BMBfault = 11;
 
 byte bmsstatus = 0;
 //bms status values
@@ -37,6 +36,13 @@ byte bmsstatus = 0;
 #define Precharge 4
 #define Error 5
 //
+int cursens = 1  ;
+//Current sensor values
+#define Undefined 0
+#define Analogue 1
+#define Canbus 2
+//
+
 
 int Discharge;
 
@@ -89,14 +95,14 @@ int NextRunningAverage;
 //Variables for SOC calc
 int SOC = 100; //State of Charge
 int SOCset = 0;
-uint16_t socvolt[4] = {3100, 10, 4100,90};
+uint16_t socvolt[4] = {3100, 10, 4100, 90};
 int CAP = 100; //battery size in Ah
 
 //variables
 int incomingByte = 0;
 int x = 0;
 int debug = 1;
-int debugCur = 0;
+int debugCur = 1;
 int menuload = 0;
 
 
@@ -109,11 +115,11 @@ void loadSettings()
   settings.checksum = 0;
   settings.canSpeed = 500000;
   settings.batteryID = 0x01; //in the future should be 0xFF to force it to ask for an address
-  settings.OverVSetpoint = 4.2f;//4.1f;
+  settings.OverVSetpoint = 4.1f;
   settings.UnderVSetpoint = 3.0f;
   settings.OverTSetpoint = 65.0f;
   settings.UnderTSetpoint = -10.0f;
-  settings.balanceVoltage = 4.0f;//3.9f;
+  settings.balanceVoltage = 3.9f;
   settings.balanceHyst = 0.04f;
   settings.logLevel = 2;
 }
@@ -138,7 +144,7 @@ void setup()
   pinMode(FUEL, OUTPUT);
   pinMode(led, OUTPUT);
 
-  if (CAN.begin(MCP_ANY, CAN_250KBPS, MCP_16MHZ) == CAN_OK) Serial.println("MCP2515 Initialized Successfully!");
+  if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) Serial.println("MCP2515 Initialized Successfully!");
   else Serial.println("Error Initializing MCP2515...");
 
   CAN.setMode(MCP_NORMAL);
@@ -190,7 +196,7 @@ void loop()
   {
     case (Boot):
       Discharge = 0;
-      if (bms.getLowCellVolt() < settings.UnderVSetpoint)
+      if (bms.getLowVoltage() < settings.UnderVSetpoint);
       {
         bmsstatus = Error;
       }
@@ -200,15 +206,15 @@ void loop()
 
     case (Ready):
       Discharge = 0;
-      if (bms.getHighCellVolt() >= settings.balanceVoltage)
+      if (bms.getHighVoltage() > settings.balanceVoltage);
       {
         bms.balanceCells();
       }
-      if (bms.getLowCellVolt() < settings.UnderVSetpoint)
+      if (bms.getLowVoltage() < settings.UnderVSetpoint);
       {
-        bmsstatus = Error;
+        //bmsstatus = Error;
       }
-      if (digitalRead(IN2) == HIGH && (settings.balanceVoltage + settings.balanceHyst) > bms.getHighCellVolt()) //detect AC present for charging and check not balancing
+      if (digitalRead(IN2) == HIGH && (settings.balanceVoltage + settings.balanceHyst) > bms.getHighVoltage()) //detect AC present for charging and check not balancing
       {
         bmsstatus = Charge;
       }
@@ -228,13 +234,13 @@ void loop()
 
     case (Drive):
       Discharge = 1;
-      if (bms.getHighCellVolt() >= settings.OverVSetpoint)
+      if (bms.getHighVoltage() > settings.OverVSetpoint);
       {
-        bmsstatus = Error;
+        //bmsstatus = Error;
       }
-      if (bms.getLowCellVolt() < settings.UnderVSetpoint)
+      if (bms.getLowVoltage() < settings.UnderVSetpoint);
       {
-        bmsstatus = Error;
+        //bmsstatus = Error;
       }
       if (digitalRead(IN1) == LOW)//Key OFF
       {
@@ -250,11 +256,11 @@ void loop()
     case (Charge):
       Discharge = 0;
       digitalWrite(OUT3, HIGH);//enable charger
-      if (bms.getHighCellVolt() >= settings.balanceVoltage)
+      if (bms.getHighVoltage() > settings.balanceVoltage);
       {
         bms.balanceCells();
       }
-      if (bms.getHighCellVolt() >= settings.OverVSetpoint)
+      if (bms.getHighVoltage() > settings.OverVSetpoint);
       {
         digitalWrite(OUT3, LOW);//turn off charger
         bmsstatus = Ready;
@@ -275,9 +281,10 @@ void loop()
       }
       break;
   }
-
-  getcurrent();
-
+  if (cursens == Analogue)
+  {
+    getcurrent();
+  }
   if (millis() - looptime > 500)
   {
 
@@ -354,62 +361,72 @@ void printbmsstat()
 
 void getcurrent()
 {
-  if (currentact < 19000 && currentact > -19000)
+  if (cursens == Analogue)
   {
-    sensor = 1;
-    adc->startContinuous(ACUR1, ADC_0);
-  }
-  else
-  {
-    sensor = 2;
-    adc->startContinuous(ACUR2, ADC_0);
-  }
+    if (currentact < 19000 && currentact > -19000)
+    {
+      sensor = 1;
+      adc->startContinuous(ACUR1, ADC_0);
+    }
+    else
+    {
+      sensor = 2;
+      adc->startContinuous(ACUR2, ADC_0);
+    }
 
-  if (sensor == 1)
-  {
-    if (debugCur != 0)
+    if (sensor == 1)
     {
-      SERIALCONSOLE.print("Low Range: ");
-      SERIALCONSOLE.print("Value ADC0: ");
+      if (debugCur != 0)
+      {
+        SERIALCONSOLE.print("Low Range: ");
+        SERIALCONSOLE.print("Value ADC0: ");
+      }
+      value = (uint16_t)adc->analogReadContinuous(ADC_0); // the unsigned is necessary for 16 bits, otherwise values larger than 3.3/2 V are negative!
+      if (debugCur != 0)
+      {
+        SERIALCONSOLE.print(value * 3.3 / adc->getMaxValue(ADC_0), 5);
+        SERIALCONSOLE.print("  ");
+      }
+      RawCur = (float(value * 3300 / adc->getMaxValue(ADC_0)) - offset1) * 15.7;
+      if (value < 100 || value > (adc->getMaxValue(ADC_0) - 100))
+      {
+        RawCur = 0;
+      }
+      if (debugCur != 0)
+      {
+        SERIALCONSOLE.print("  ");
+        SERIALCONSOLE.print(RawCur);
+        SERIALCONSOLE.print("mA");
+        SERIALCONSOLE.print("  ");
+      }
     }
-    value = (uint16_t)adc->analogReadContinuous(ADC_0); // the unsigned is necessary for 16 bits, otherwise values larger than 3.3/2 V are negative!
-    if (debugCur != 0)
+    else
     {
-      SERIALCONSOLE.print(value * 3.3 / adc->getMaxValue(ADC_0), 5);
-      SERIALCONSOLE.print("  ");
-    }
-    RawCur = (float(value * 3300 / adc->getMaxValue(ADC_0)) - offset1) * 15.7;
-    if (debugCur != 0)
-    {
-      SERIALCONSOLE.print("  ");
-      SERIALCONSOLE.print(RawCur);
-      SERIALCONSOLE.print("mA");
-      SERIALCONSOLE.print("  ");
+      if (debugCur != 0)
+      {
+        SERIALCONSOLE.print("High Range: ");
+        SERIALCONSOLE.print("Value ADC0: ");
+      }
+      value = (uint16_t)adc->analogReadContinuous(ADC_0); // the unsigned is necessary for 16 bits, otherwise values larger than 3.3/2 V are negative!
+      if (debugCur != 0)
+      {
+        SERIALCONSOLE.print(value * 3.3 / adc->getMaxValue(ADC_0), 5);
+        SERIALCONSOLE.print("  ");
+      }
+      RawCur = (float(value * 3300 / adc->getMaxValue(ADC_0)) - offset2) * highconv;
+      if (value < 100 || value > (adc->getMaxValue(ADC_0) - 100))
+      {
+        RawCur = 0;
+      }
+      if (debugCur != 0)
+      {
+        SERIALCONSOLE.print("  ");
+        SERIALCONSOLE.print(RawCur);
+        SERIALCONSOLE.print("mA");
+        SERIALCONSOLE.print("  ");
+      }
     }
   }
-  else
-  {
-    if (debugCur != 0)
-    {
-      SERIALCONSOLE.print("High Range: ");
-      SERIALCONSOLE.print("Value ADC0: ");
-    }
-    value = (uint16_t)adc->analogReadContinuous(ADC_0); // the unsigned is necessary for 16 bits, otherwise values larger than 3.3/2 V are negative!
-    if (debugCur != 0)
-    {
-      SERIALCONSOLE.print(value * 3.3 / adc->getMaxValue(ADC_0), 5);
-      SERIALCONSOLE.print("  ");
-    }
-    RawCur = (float(value * 3300 / adc->getMaxValue(ADC_0)) - offset2) * highconv;
-    if (debugCur != 0)
-    {
-      SERIALCONSOLE.print("  ");
-      SERIALCONSOLE.print(RawCur);
-      SERIALCONSOLE.print("mA");
-      SERIALCONSOLE.print("  ");
-    }
-  }
-
   if (invertcur == 1)
   {
     RawCur = RawCur * -1;
@@ -428,45 +445,47 @@ void getcurrent()
 
   currentact = RunningAverageCur;
 
-  if (sensor == 1)
+  if (cursens == Analogue)
   {
-    if (currentact > 500 || currentact < -500 )
+    if (sensor == 1)
     {
-      ampsecond = ampsecond + ((currentact * (millis() - lasttime) / 1000) / 1000);
-      lasttime = millis();
+      if (currentact > 500 || currentact < -500 )
+      {
+        ampsecond = ampsecond + ((currentact * (millis() - lasttime) / 1000) / 1000);
+        lasttime = millis();
+      }
+      else
+      {
+        lasttime = millis();
+      }
     }
-    else
+    if (sensor == 2)
     {
-      lasttime = millis();
+      if (currentact > 180000 || currentact < -18000 )
+      {
+        ampsecond = ampsecond + ((currentact * (millis() - lasttime) / 1000) / 1000);
+        lasttime = millis();
+      }
+      else
+      {
+        lasttime = millis();
+      }
     }
   }
-  if (sensor == 2)
-  {
-    if (currentact > 180000 || currentact < -18000 )
-    {
-      ampsecond = ampsecond + ((currentact * (millis() - lasttime) / 1000) / 1000);
-      lasttime = millis();
-    }
-    else
-    {
-      lasttime = millis();
-    }
-  }
-
 }
 
 void updateSOC()
 {
   if (SOCset == 0)
   {
-    SOC = map(uint16_t(bms.getAvgCellVolt()*1000),socvolt[0],socvolt[2],socvolt[1],socvolt[3]);
+    SOC = map(uint16_t(bms.getAvgCellVolt() * 1000), socvolt[0], socvolt[2], socvolt[1], socvolt[3]);
     SERIALCONSOLE.print("  ");
     SERIALCONSOLE.print(SOC);
     SERIALCONSOLE.print("  ");
-    ampsecond = (SOC*CAP*10)/ 0.27777777777778 ;
+    ampsecond = (SOC * CAP * 10) / 0.27777777777778 ;
     SOCset = 1;
   }
-  SOC = ((ampsecond * 0.27777777777778)/(CAP * 1000)) * 100;
+  SOC = ((ampsecond * 0.27777777777778) / (CAP * 1000)) * 100;
 
   if (debug != 0)
   {
@@ -648,9 +667,9 @@ void VEcan() //communication with Victron system over CAN
 
   CAN.sendMsgBuf(0x35A, 0, 8, mes);
   delay(5);
-  CAN.sendMsgBuf(0x370, 0, 8, bmsname);
+  CAN.sendMsgBuf(0x35E, 0, 8, bmsname);
   delay(5);
-  CAN.sendMsgBuf(0x35E, 0, 8, bmsmanu);
+  CAN.sendMsgBuf(0x370, 0, 8, bmsmanu);
 
 }
 
@@ -960,4 +979,3 @@ void menu()
     menuload = 1;
   }
 }
-
