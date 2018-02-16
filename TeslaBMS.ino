@@ -26,6 +26,7 @@ const int OUT5 = 3;// output 1 - high active
 const int OUT6 = 4;// output 1 - high active
 const int FUEL = 5;// Fuel gauge pwm signal
 const int led = 13;
+const int BMBfault = 11;
 
 byte bmsstatus = 0;
 //bms status values
@@ -196,7 +197,7 @@ void loop()
   {
     case (Boot):
       Discharge = 0;
-      if (bms.getLowVoltage() < settings.UnderVSetpoint);
+      if (bms.getLowCellVolt() < settings.UnderVSetpoint);
       {
         bmsstatus = Error;
       }
@@ -206,15 +207,15 @@ void loop()
 
     case (Ready):
       Discharge = 0;
-      if (bms.getHighVoltage() > settings.balanceVoltage);
+      if (bms.getHighCellVolt() > settings.balanceVoltage);
       {
         bms.balanceCells();
       }
-      if (bms.getLowVoltage() < settings.UnderVSetpoint);
+      if (bms.getLowCellVolt() < settings.UnderVSetpoint);
       {
-        //bmsstatus = Error;
+        bmsstatus = Error;
       }
-      if (digitalRead(IN2) == HIGH && (settings.balanceVoltage + settings.balanceHyst) > bms.getHighVoltage()) //detect AC present for charging and check not balancing
+      if (digitalRead(IN2) == HIGH && (settings.balanceVoltage + settings.balanceHyst) > bms.getHighCellVolt()) //detect AC present for charging and check not balancing
       {
         bmsstatus = Charge;
       }
@@ -234,11 +235,11 @@ void loop()
 
     case (Drive):
       Discharge = 1;
-      if (bms.getHighVoltage() > settings.OverVSetpoint);
+      if (bms.getHighCellVolt() > settings.OverVSetpoint);
       {
         //bmsstatus = Error;
       }
-      if (bms.getLowVoltage() < settings.UnderVSetpoint);
+      if (bms.getLowCellVolt() < settings.UnderVSetpoint);
       {
         //bmsstatus = Error;
       }
@@ -256,11 +257,11 @@ void loop()
     case (Charge):
       Discharge = 0;
       digitalWrite(OUT3, HIGH);//enable charger
-      if (bms.getHighVoltage() > settings.balanceVoltage);
+      if (bms.getHighCellVolt() > settings.balanceVoltage);
       {
         bms.balanceCells();
       }
-      if (bms.getHighVoltage() > settings.OverVSetpoint);
+      if (bms.getHighCellVolt() > settings.OverVSetpoint);
       {
         digitalWrite(OUT3, LOW);//turn off charger
         bmsstatus = Ready;
@@ -979,3 +980,4 @@ void menu()
     menuload = 1;
   }
 }
+
