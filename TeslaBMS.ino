@@ -71,6 +71,12 @@ uint16_t SOH = 100; // SOH place holder
 unsigned char mes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 unsigned char bmsname[8] = {'S', 'I', 'M', 'P', ' ', 'B', 'M', 'S'};
 unsigned char bmsmanu[8] = {'T', 'O', 'M', ' ', 'D', 'E', ' ', 'B'};
+long unsigned int rxId;
+unsigned char len = 0;
+byte rxBuf[8];
+char msgString[128];                        // Array to store serial string
+uint32_t inbox;
+signed long CANmilliamps;
 
 MCP_CAN CAN(10); //set CS pin for can controlelr
 
@@ -103,7 +109,8 @@ int CAP = 100; //battery size in Ah
 int incomingByte = 0;
 int x = 0;
 int debug = 1;
-int debugCur = 1;
+int candebug = 0;
+int debugCur = 0;
 int menuload = 0;
 
 
@@ -185,7 +192,10 @@ void setup()
 void loop()
 {
   //console.loop();
-
+  if (CAN.checkReceive() == 3)                        // If rx flag is set
+  {
+    canread();
+  }
   if (SERIALCONSOLE.available() > 0)
   {
     menu();
@@ -775,6 +785,8 @@ void menu()
         calcur();
         break;
 
+
+
       case 113: //c for calibrate zero offset
 
         menuload = 0;
@@ -782,15 +794,19 @@ void menu()
         break;
 
       case 115: //s for switch sensor
-        if (sensor == 1)
+        if (cursens == Analogue)
         {
-          adc->startContinuous(ACUR2, ADC_0);
-          sensor = 2;
+          cursens = Canbus;
+          SERIALCONSOLE.println("  ");
+          SERIALCONSOLE.print(" CANbus Current Sensor ");
+          SERIALCONSOLE.println("  ");
         }
         else
         {
-          adc->startContinuous(ACUR1, ADC_0);
-          sensor = 1;
+          cursens = Analogue;
+          SERIALCONSOLE.println("  ");
+          SERIALCONSOLE.print(" Analogue Current Sensor ");
+          SERIALCONSOLE.println("  ");
         }
         break;
 
@@ -942,7 +958,7 @@ void menu()
         SERIALCONSOLE.println();
         SERIALCONSOLE.println("Current Sensor Calibration Menu");
         SERIALCONSOLE.println("c - To calibrate sensor offset");
-        SERIALCONSOLE.println("s - To switch between ranges");
+        SERIALCONSOLE.println("s - To switch between Current Sensors");
         SERIALCONSOLE.println("q - Go back to menu");
         menuload = 2;
         break;
@@ -981,3 +997,67 @@ void menu()
   }
 }
 
+void canread()
+{
+  CAN.readMsgBuf(&rxId, &len, rxBuf);      // Read data: len = data length, buf = data byte(s)
+
+  switch (rxId)
+  {
+    case 0x3c2:
+      CAB300(rxBuf);
+      break;
+
+    default:
+      break;
+  }
+  if (candebug == 1)
+  {
+    Serial.print(millis());
+    if ((rxId & 0x80000000) == 0x80000000)    // Determine if ID is standard (11 bits) or extended (29 bits)
+      sprintf(msgString, "Extended ID: 0x%.8lX  DLC: %1d  Data:", (rxId & 0x1FFFFFFF), len);
+    else
+      sprintf(msgString, ",0x%.3lX,false,%1d", rxId, len);
+
+    Serial.print(msgString);
+
+    if ((rxId & 0x40000000) == 0x40000000) {  // Determine if message is a remote request frame.
+      sprintf(msgString, " REMOTE REQUEST FRAME");
+      Serial.print(msgString);
+    } else {
+      for (byte i = 0; i < len; i++) {
+        sprintf(msgString, ", 0x%.2X", rxBuf[i]);
+        Serial.print(msgString);
+      }
+    }
+
+    Serial.println();
+  }
+}
+
+void CAB300(byte data[8])
+{
+  for (int i = 0; i < 4; i++)
+  {
+    inbox = (inbox << 8) | data[i];
+  }
+  CANmilliamps = inbox;
+  if (CANmilliamps > 0x80000000)
+  {
+    CANmilliamps -= 0x80000000;
+  }
+  else
+  {
+    CANmilliamps = (0x80000000 - CANmilliamps) * -1;
+  }
+  if (cursens == Canbus)
+  {
+    RawCur = CANmilliamps;
+    getcurrent();
+  }
+  if (candebug == 1)
+  {
+    Serial.println();
+    Serial.print(CANmilliamps);
+    Serial.print("mA");
+  }
+}
