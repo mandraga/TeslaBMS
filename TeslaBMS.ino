@@ -207,10 +207,7 @@ void loop()
   {
     case (Boot):
       Discharge = 0;
-      if (bms.getLowCellVolt() < settings.UnderVSetpoint);
-      {
-        bmsstatus = Error;
-      }
+
 
       bmsstatus = Ready;
       break;
@@ -220,10 +217,6 @@ void loop()
       if (bms.getHighCellVolt() > settings.balanceVoltage);
       {
         bms.balanceCells();
-      }
-      if (bms.getLowCellVolt() < settings.UnderVSetpoint);
-      {
-        bmsstatus = Error;
       }
       if (digitalRead(IN2) == HIGH && (settings.balanceVoltage + settings.balanceHyst) > bms.getHighCellVolt()) //detect AC present for charging and check not balancing
       {
@@ -245,14 +238,6 @@ void loop()
 
     case (Drive):
       Discharge = 1;
-      if (bms.getHighCellVolt() > settings.OverVSetpoint);
-      {
-        //bmsstatus = Error;
-      }
-      if (bms.getLowCellVolt() < settings.UnderVSetpoint);
-      {
-        //bmsstatus = Error;
-      }
       if (digitalRead(IN1) == LOW)//Key OFF
       {
         digitalWrite(OUT4, LOW);
@@ -290,6 +275,11 @@ void loop()
       {
         bmsstatus = Charge;
       }
+    if (bms.getLowCellVolt() >= settings.UnderVSetpoint);
+    {
+      bmsstatus = Ready;
+    }
+      
       break;
   }
   if (cursens == Analogue)
@@ -301,6 +291,18 @@ void loop()
 
     looptime = millis();
     bms.getAllVoltTemp();
+
+    //UV  check
+    SERIALCONSOLE.print(bms.getLowCellVolt());
+    SERIALCONSOLE.print("  ");
+    SERIALCONSOLE.print(settings.UnderVSetpoint);
+
+    if (bms.getLowCellVolt() < settings.UnderVSetpoint)
+    {
+      bmsstatus = Error;
+    }
+
+
     if (debug != 0)
     {
       printbmsstat();
