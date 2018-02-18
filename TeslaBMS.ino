@@ -37,7 +37,7 @@ byte bmsstatus = 0;
 #define Precharge 4
 #define Error 5
 //
-int cursens = 1  ;
+int cursens = 2;
 //Current sensor values
 #define Undefined 0
 #define Analogue 1
@@ -275,11 +275,11 @@ void loop()
       {
         bmsstatus = Charge;
       }
-    if (bms.getLowCellVolt() >= settings.UnderVSetpoint);
-    {
-      bmsstatus = Ready;
-    }
-      
+      if (bms.getLowCellVolt() >= settings.UnderVSetpoint);
+      {
+        bmsstatus = Ready;
+      }
+
       break;
   }
   if (cursens == Analogue)
@@ -293,9 +293,6 @@ void loop()
     bms.getAllVoltTemp();
 
     //UV  check
-    SERIALCONSOLE.print(bms.getLowCellVolt());
-    SERIALCONSOLE.print("  ");
-    SERIALCONSOLE.print(settings.UnderVSetpoint);
 
     if (bms.getLowCellVolt() < settings.UnderVSetpoint)
     {
@@ -485,6 +482,18 @@ void getcurrent()
       }
     }
   }
+  else
+  {
+    if (currentact > 500 || currentact < -500 )
+    {
+      ampsecond = ampsecond + ((currentact * (millis() - lasttime) / 1000) / 1000);
+      lasttime = millis();
+    }
+    else
+    {
+      lasttime = millis();
+    }
+  }
 }
 
 void updateSOC()
@@ -499,8 +508,24 @@ void updateSOC()
     SOCset = 1;
   }
   SOC = ((ampsecond * 0.27777777777778) / (CAP * 1000)) * 100;
+  if (bms.getAvgCellVolt() > settings.OverVSetpoint)
+  {
+    ampsecond = (CAP * 1000) / 0.27777777777778 ; //reset to full, dependant on given capacity. Need to improve with auto correction for capcity.
+    if (SOC >= 100)
+    {
+      SOC = 100;
+    }
+  }
+
+
+  if (SOC < 0)
+  {
+    //
+  }
 
   if (debug != 0)
+  {
+      if (cursens == Analogue)
   {
     if (sensor == 1)
     {
@@ -510,6 +535,11 @@ void updateSOC()
     {
       SERIALCONSOLE.print("High Range");
     }
+  }
+  else
+  {
+    SERIALCONSOLE.print("CANbus ");
+  }
     SERIALCONSOLE.print("  ");
     SERIALCONSOLE.print(currentact);
     SERIALCONSOLE.print("mA");
