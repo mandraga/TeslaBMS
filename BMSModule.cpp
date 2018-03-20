@@ -189,9 +189,18 @@ float BMSModule::getHighCellV()
 
 float BMSModule::getAverageV()
 {
+    int x =0;
     float avgVal = 0.0f;
-    for (int i = 0; i < 6; i++) avgVal += cellVolt[i];
-    avgVal /= 6.0f;
+    for (int i = 0; i < 6; i++) 
+    {
+      if (cellVolt[i] > 0.1)
+      {
+        x++;
+        avgVal += cellVolt[i];
+      }
+    }
+    
+    avgVal /= x;
     return avgVal;    
 }
 

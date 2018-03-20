@@ -12,6 +12,9 @@ BMSModuleManager bms;
 SerialConsole console;
 EEPROMSettings settings;
 
+//Simple BMS Settings//
+int CAP = 100; //battery size in Ah
+int Pstrings = 1; // strings in parallel used to divide voltage of pack
 
 //Simple BMS wiring//
 const int ACUR1 = A0; // current 1
@@ -103,7 +106,7 @@ int NextRunningAverage;
 int SOC = 100; //State of Charge
 int SOCset = 0;
 uint16_t socvolt[4] = {3100, 10, 4100, 90};
-int CAP = 100; //battery size in Ah
+
 
 //variables
 int incomingByte = 0;
@@ -187,6 +190,7 @@ void setup()
   //bms.clearFaults();
   bms.findBoards();
   digitalWrite(led, HIGH);
+  bms.setPstrings(Pstrings);
 }
 
 void loop()

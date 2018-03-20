@@ -284,7 +284,8 @@ void BMSModuleManager::getAllVoltTemp()
             if (modules[x].getHighTemp() > highestPackTemp) highestPackTemp = modules[x].getHighTemp();            
         }
     }
-    
+
+    packVolt = packVolt/Pstring;
     if (packVolt > highestPackVolt) highestPackVolt = packVolt;
     if (packVolt < lowestPackVolt) lowestPackVolt = packVolt;
     
@@ -343,6 +344,11 @@ float BMSModuleManager::getHighVoltage()
 void BMSModuleManager::setBatteryID(int id)
 {
     batteryID = id;
+}
+
+void BMSModuleManager::setPstrings(int Pstrings)
+{
+    Pstring = Pstrings;
 }
 
 float BMSModuleManager::getAvgTemperature()
