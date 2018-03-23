@@ -66,9 +66,9 @@ char* myStrings[] = {"V", "14674", "I", "0", "CE", "-1", "SOC", "800", "TTG", "-
 
 //variables for VE can
 uint16_t chargevoltage = 49100; //max charge voltage in mv
-uint16_t chargecurrent = 30000; //max charge current in ma
+uint16_t chargecurrent = 300; //max charge current in 0.1A
 uint16_t disvoltage = 42000; // max discharge voltage in mv
-uint16_t discurrent = 30000; // max discharge current in ma
+uint16_t discurrent = 300; // max discharge current in 0.1A
 uint16_t SOH = 100; // SOH place holder
 
 unsigned char mes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -674,10 +674,10 @@ void VEcan() //communication with Victron system over CAN
 {
   mes[0] = lowByte(chargevoltage / 100);
   mes[1] = highByte(chargevoltage / 100);
-  mes[2] = lowByte(chargecurrent / 100);
-  mes[3] = highByte(chargecurrent / 100);
-  mes[4] = lowByte(discurrent / 100);
-  mes[5] = highByte(discurrent / 100);
+  mes[2] = lowByte(chargecurrent);
+  mes[3] = highByte(chargecurrent);
+  mes[4] = lowByte(discurrent );
+  mes[5] = highByte(discurrent);
   mes[6] = lowByte(disvoltage / 100);
   mes[7] = highByte(disvoltage / 100);
 
@@ -900,6 +900,12 @@ void menu()
         SERIALCONSOLE.print(CAP);
         SERIALCONSOLE.print("Ah Battery Capacity - 7 ");
         SERIALCONSOLE.println("  ");
+        SERIALCONSOLE.print(chargecurrent*0.001);
+        SERIALCONSOLE.print("A max Charge - 8 ");
+        SERIALCONSOLE.println("  ");
+        SERIALCONSOLE.print(discurrent*0.001);
+        SERIALCONSOLE.print("A max Discharge - 9 ");
+        SERIALCONSOLE.println("  ");
         break;
       case 101: //e dispaly settings
         SERIALCONSOLE.println("  ");
@@ -973,6 +979,23 @@ void menu()
           SERIALCONSOLE.print("Ah Battery Capacity");
         }
         break;
+      case 56://8 chargecurrent A
+        if (Serial.available() > 0)
+        {
+          chargecurrent = Serial.parseInt()*10;
+          SERIALCONSOLE.print(chargecurrent*0.1);
+          SERIALCONSOLE.print("A max Charge");
+        }
+        break;
+              case 57://9 discurrent in A
+        if (Serial.available() > 0)
+        {
+          discurrent = Serial.parseInt()*10;
+          SERIALCONSOLE.print(discurrent*0.1);
+          SERIALCONSOLE.print("A max Discharge");
+        }
+        break;
+        
     }
   }
 
