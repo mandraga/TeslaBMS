@@ -128,7 +128,7 @@ bool BMSModule::readModuleValues()
             for (int i = 0; i < 6; i++) 
             {
                 cellVolt[i] = (buff[5 + (i * 2)] * 256 + buff[6 + (i * 2)]) * 0.000381493f;
-                if (lowestCellVolt[i] > cellVolt[i] && cellVolt[i] >= 0.01) lowestCellVolt[i] = cellVolt[i];
+                if (lowestCellVolt[i] > cellVolt[i] && cellVolt[i] >= 0.1) lowestCellVolt[i] = cellVolt[i];
                 if (highestCellVolt[i] < cellVolt[i]) highestCellVolt[i] = cellVolt[i];
             }
             

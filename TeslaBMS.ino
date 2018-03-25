@@ -66,11 +66,13 @@ char* myStrings[] = {"V", "14674", "I", "0", "CE", "-1", "SOC", "800", "TTG", "-
 
 //variables for VE can
 uint16_t chargevoltage = 49100; //max charge voltage in mv
-uint16_t chargecurrent = 300; //max charge current in 0.1A
+int chargecurrent, chargecurrentmax = 300; //max charge current in 0.1A
 uint16_t disvoltage = 42000; // max discharge voltage in mv
-uint16_t discurrent = 300; // max discharge current in 0.1A
+int discurrent, discurrentmax = 300; // max discharge current in 0.1A
+
 uint16_t SOH = 100; // SOH place holder
 
+unsigned char alarm[4] = {0, 0, 0, 0};
 unsigned char mes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 unsigned char bmsname[8] = {'S', 'I', 'M', 'P', ' ', 'B', 'M', 'S'};
 unsigned char bmsmanu[8] = {'T', 'O', 'M', ' ', 'D', 'E', ' ', 'B'};
@@ -130,6 +132,8 @@ void loadSettings()
   settings.UnderVSetpoint = 3.0f;
   settings.OverTSetpoint = 65.0f;
   settings.UnderTSetpoint = -10.0f;
+  settings.ChargeTSetpoint = 0.0f;
+  settings.DisTSetpoint = 40.0f;
   settings.balanceVoltage = 3.9f;
   settings.balanceHyst = 0.04f;
   settings.logLevel = 2;
@@ -312,7 +316,30 @@ void loop()
     updateSOC();
     //BMVmessage();
     //gaugeupdate();
+    currentlimit();
     VEcan();
+  }
+}
+
+void alarmupdate()
+{
+  alarm[0] = 0;
+  if (bms.getHighCellVolt() > settings.OverVSetpoint);
+  {
+    alarm[0] = 0x04;
+  }
+  if (bms.getLowCellVolt() < settings.UnderVSetpoint)
+  {
+    alarm[0] |= 0x10;
+  }
+  if (bms.getAvgTemperature() < settings.OverTSetpoint)
+  {
+    alarm[0] |= 0x40;
+  }
+  alarm[1] = 0;
+  if (bms.getAvgTemperature() < settings.UnderTSetpoint)
+  {
+    alarm[1] = 0x01;
   }
 }
 
@@ -529,21 +556,21 @@ void updateSOC()
 
   if (debug != 0)
   {
-      if (cursens == Analogue)
-  {
-    if (sensor == 1)
+    if (cursens == Analogue)
     {
-      SERIALCONSOLE.print("Low Range ");
+      if (sensor == 1)
+      {
+        SERIALCONSOLE.print("Low Range ");
+      }
+      else
+      {
+        SERIALCONSOLE.print("High Range");
+      }
     }
     else
     {
-      SERIALCONSOLE.print("High Range");
+      SERIALCONSOLE.print("CANbus ");
     }
-  }
-  else
-  {
-    SERIALCONSOLE.print("CANbus ");
-  }
     SERIALCONSOLE.print("  ");
     SERIALCONSOLE.print(currentact);
     SERIALCONSOLE.print("mA");
@@ -703,16 +730,16 @@ void VEcan() //communication with Victron system over CAN
 
   CAN.sendMsgBuf(0x356, 0, 8, mes);
 
-  mes[0] = 0;
-  mes[1] = 0;
-  mes[2] = 0;
-  mes[3] = 0;
+  mes[0] = alarm[0];//High temp  Low Voltage | High Voltage
+  mes[1] = alarm[1]; // High Discharge Current | Low Temperature
+  mes[2] = alarm[2]; //Internal Failure | High Charge current
+  mes[3] = alarm[3];// Cell Imbalance
   mes[4] = 0;
   mes[5] = 0;
   mes[6] = 0;
   mes[7] = 0;
 
-  CAN.sendMsgBuf(0x35A, 0, 8, mes);
+  CAN.sendMsgBuf(0x35A, 0, 8, mes); //warnings and errors
   delay(5);
   CAN.sendMsgBuf(0x35E, 0, 8, bmsname);
   delay(5);
@@ -900,10 +927,10 @@ void menu()
         SERIALCONSOLE.print(CAP);
         SERIALCONSOLE.print("Ah Battery Capacity - 7 ");
         SERIALCONSOLE.println("  ");
-        SERIALCONSOLE.print(chargecurrent*0.001);
+        SERIALCONSOLE.print(chargecurrentmax * 0.001);
         SERIALCONSOLE.print("A max Charge - 8 ");
         SERIALCONSOLE.println("  ");
-        SERIALCONSOLE.print(discurrent*0.001);
+        SERIALCONSOLE.print(discurrentmax * 0.001);
         SERIALCONSOLE.print("A max Discharge - 9 ");
         SERIALCONSOLE.println("  ");
         break;
@@ -982,20 +1009,20 @@ void menu()
       case 56://8 chargecurrent A
         if (Serial.available() > 0)
         {
-          chargecurrent = Serial.parseInt()*10;
-          SERIALCONSOLE.print(chargecurrent*0.1);
+          chargecurrentmax = Serial.parseInt() * 10;
+          SERIALCONSOLE.print(chargecurrentmax * 0.1);
           SERIALCONSOLE.print("A max Charge");
         }
         break;
-              case 57://9 discurrent in A
+      case 57://9 discurrent in A
         if (Serial.available() > 0)
         {
-          discurrent = Serial.parseInt()*10;
-          SERIALCONSOLE.print(discurrent*0.1);
+          discurrentmax = Serial.parseInt() * 10;
+          SERIALCONSOLE.print(discurrentmax * 0.1);
           SERIALCONSOLE.print("A max Discharge");
         }
         break;
-        
+
     }
   }
 
@@ -1120,3 +1147,50 @@ void CAB300(byte data[8])
     Serial.print("mA");
   }
 }
+
+void currentlimit()
+{
+  if (bmsstatus == Error)
+  {
+    discurrent = 0;
+    chargecurrent = 0;
+  }
+  else
+  {
+    if (bms.getAvgTemperature() < settings.UnderTSetpoint)
+    {
+      discurrent = 0;
+      chargecurrent = 0;
+    }
+    else
+    {
+      if (bms.getAvgTemperature() < settings.ChargeTSetpoint)
+      {
+        discurrent = discurrentmax;
+        chargecurrent = map(bms.getAvgTemperature(), settings.UnderTSetpoint, settings.ChargeTSetpoint, 0, chargecurrentmax);
+      }
+      else
+      {
+        if (bms.getAvgTemperature() < settings.DisTSetpoint)
+        {
+          discurrent = discurrentmax;
+          chargecurrent = chargecurrentmax;
+        }
+        else
+        {
+          if (bms.getAvgTemperature() < settings.OverTSetpoint)
+          {
+            discurrent = map(bms.getAvgTemperature(), settings.DisTSetpoint, settings.OverTSetpoint, discurrentmax, 0);
+            chargecurrent = chargecurrentmax;
+          }
+          else
+          {
+            discurrent = 0;
+            chargecurrent = 0;
+          }
+        }
+      }
+    }
+  }
+}
+
