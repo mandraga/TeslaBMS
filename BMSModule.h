@@ -2,7 +2,7 @@
 
 class BMSModule
 {
-public:
+  public:
     BMSModule();
     void readStatus();
     bool readModuleValues();
@@ -29,8 +29,10 @@ public:
     int getAddress();
     bool isExisting();
     void setExists(bool ex);
-
-private:
+    void settempsensor(int tempsensor);
+    
+    
+  private:
     float cellVolt[6];          // calculated as 16 bit value * 6.250 / 16383 = volts
     float lowestCellVolt[6];
     float highestCellVolt[6];
@@ -45,6 +47,6 @@ private:
     int faults;
     int COVFaults;
     int CUVFaults;
-
+    int sensor;
     uint8_t moduleAddress;     //1 to 0x3E
 };

@@ -134,6 +134,7 @@ void loadSettings()
   settings.UnderTSetpoint = -10.0f;
   settings.ChargeTSetpoint = 0.0f;
   settings.DisTSetpoint = 40.0f;
+  settings.IgnoreTemp = 0; // 0 - use both sensors, 1 or 2 only use that sensor
   settings.balanceVoltage = 3.9f;
   settings.balanceHyst = 0.04f;
   settings.logLevel = 2;
@@ -195,6 +196,7 @@ void setup()
   bms.findBoards();
   digitalWrite(led, HIGH);
   bms.setPstrings(Pstrings);
+  bms.setTempsensor(settings.IgnoreTemp);
 }
 
 void loop()

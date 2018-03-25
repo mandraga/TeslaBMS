@@ -176,7 +176,7 @@ float BMSModule::getCellVoltage(int cell)
 float BMSModule::getLowCellV()
 {
     float lowVal = 10.0f;
-    for (int i = 0; i < 6; i++) if (cellVolt[i] < lowVal) lowVal = cellVolt[i];
+    for (int i = 0; i < 6; i++) if (cellVolt[i] < lowVal && cellVolt[i] > 0.1) lowVal = cellVolt[i];
     return lowVal;
 }
 
@@ -248,7 +248,14 @@ float BMSModule::getHighTemp()
 
 float BMSModule::getAvgTemp()
 {
+  if (sensor == 0)
+  {
     return (temperatures[0] + temperatures[1]) / 2.0f;
+  }
+  else
+  {
+    return temperatures[sensor-1];
+  }
 }
 
 float BMSModule::getModuleVoltage()
@@ -278,6 +285,10 @@ bool BMSModule::isExisting()
     return exists;
 }
 
+void BMSModule::settempsensor(int tempsensor)
+{
+  sensor = tempsensor;
+}
 
 void BMSModule::setExists(bool ex)
 {

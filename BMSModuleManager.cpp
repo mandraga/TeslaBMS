@@ -351,6 +351,17 @@ void BMSModuleManager::setPstrings(int Pstrings)
     Pstring = Pstrings;
 }
 
+void BMSModuleManager::setTempsensor(int sensor)
+{
+  for (int x = 1; x <= MAX_MODULE_ADDR; x++)
+    {
+        if (modules[x].isExisting()) 
+        {
+          modules[x].settempsensor(sensor);
+        }
+    }
+}
+
 float BMSModuleManager::getAvgTemperature()
 {
     float avg = 0.0f;

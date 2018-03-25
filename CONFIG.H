@@ -51,6 +51,7 @@ typedef struct {
   float UnderTSetpoint;
   float ChargeTSetpoint;
   float DisTSetpoint;
+  uint8_t IgnoreTemp;
   float balanceVoltage;
   float balanceHyst;
 } EEPROMSettings;
