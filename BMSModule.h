@@ -30,6 +30,7 @@ class BMSModule
     bool isExisting();
     void setExists(bool ex);
     void settempsensor(int tempsensor);
+    void setIgnoreCell(float Ignore);
     
     
   private:
@@ -42,6 +43,7 @@ class BMSModule
     float highestTemperature;
     float lowestModuleVolt;
     float highestModuleVolt;
+    float IgnoreCell;
     bool exists;
     int alerts;
     int faults;

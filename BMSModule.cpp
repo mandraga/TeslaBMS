@@ -128,7 +128,7 @@ bool BMSModule::readModuleValues()
             for (int i = 0; i < 6; i++) 
             {
                 cellVolt[i] = (buff[5 + (i * 2)] * 256 + buff[6 + (i * 2)]) * 0.000381493f;
-                if (lowestCellVolt[i] > cellVolt[i] && cellVolt[i] >= 0.1) lowestCellVolt[i] = cellVolt[i];
+                if (lowestCellVolt[i] > cellVolt[i] && cellVolt[i] >= IgnoreCell) lowestCellVolt[i] = cellVolt[i];
                 if (highestCellVolt[i] < cellVolt[i]) highestCellVolt[i] = cellVolt[i];
             }
             
@@ -176,7 +176,7 @@ float BMSModule::getCellVoltage(int cell)
 float BMSModule::getLowCellV()
 {
     float lowVal = 10.0f;
-    for (int i = 0; i < 6; i++) if (cellVolt[i] < lowVal && cellVolt[i] > 0.1) lowVal = cellVolt[i];
+    for (int i = 0; i < 6; i++) if (cellVolt[i] < lowVal && cellVolt[i] > IgnoreCell) lowVal = cellVolt[i];
     return lowVal;
 }
 
@@ -193,7 +193,7 @@ float BMSModule::getAverageV()
     float avgVal = 0.0f;
     for (int i = 0; i < 6; i++) 
     {
-      if (cellVolt[i] > 0.1)
+      if (cellVolt[i] > IgnoreCell)
       {
         x++;
         avgVal += cellVolt[i];
@@ -293,5 +293,10 @@ void BMSModule::settempsensor(int tempsensor)
 void BMSModule::setExists(bool ex)
 {
     exists = ex;
+}
+
+void BMSModule::setIgnoreCell(float Ignore)
+{
+  IgnoreCell = Ignore;
 }
 

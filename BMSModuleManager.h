@@ -22,7 +22,7 @@ public:
     void setOverTemp(float newVal);
     void setBalanceV(float newVal);
     void setBalanceHyst(float newVal);
-    void setTempsensor(int sensor);
+    void setSensors(int sensor,float Ignore);
     float getPackVoltage();
     float getAvgTemperature();
     float getAvgCellVolt();

@@ -114,7 +114,7 @@ uint16_t socvolt[4] = {3100, 10, 4100, 90};
 int incomingByte = 0;
 int x = 0;
 int debug = 1;
-int candebug = 0;
+int candebug = 1; //view can frames
 int debugCur = 0;
 int menuload = 0;
 
@@ -135,6 +135,7 @@ void loadSettings()
   settings.ChargeTSetpoint = 0.0f;
   settings.DisTSetpoint = 40.0f;
   settings.IgnoreTemp = 0; // 0 - use both sensors, 1 or 2 only use that sensor
+  settings.IgnoreVolt = 0.5;//
   settings.balanceVoltage = 3.9f;
   settings.balanceHyst = 0.04f;
   settings.logLevel = 2;
@@ -196,7 +197,7 @@ void setup()
   bms.findBoards();
   digitalWrite(led, HIGH);
   bms.setPstrings(Pstrings);
-  bms.setTempsensor(settings.IgnoreTemp);
+  bms.setSensors(settings.IgnoreTemp,settings.IgnoreVolt);
 }
 
 void loop()
@@ -1146,7 +1147,7 @@ void CAB300(byte data[8])
   {
     Serial.println();
     Serial.print(CANmilliamps);
-    Serial.print("mA");
+    Serial.print("mA ");
   }
 }
 
