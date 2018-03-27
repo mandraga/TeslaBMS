@@ -23,8 +23,8 @@ const int IN1 = 16; // input 1 - high active
 const int IN2 = 17; // input 2- high active
 const int OUT1 = 20;// output 1 - high active
 const int OUT2 = 21;// output 1 - high active
-const int OUT3 = 23;// output 1 - high active
-const int OUT4 = 24;// output 1 - high active
+const int OUT3 = 22;// output 1 - high active
+const int OUT4 = 23;// output 1 - high active
 const int OUT5 = 3;// output 1 - high active
 const int OUT6 = 4;// output 1 - high active
 const int FUEL = 5;// Fuel gauge pwm signal
@@ -114,7 +114,7 @@ uint16_t socvolt[4] = {3100, 10, 4100, 90};
 int incomingByte = 0;
 int x = 0;
 int debug = 1;
-int candebug = 1; //view can frames
+int candebug = 0; //view can frames
 int debugCur = 0;
 int menuload = 0;
 
@@ -197,7 +197,7 @@ void setup()
   bms.findBoards();
   digitalWrite(led, HIGH);
   bms.setPstrings(Pstrings);
-  bms.setSensors(settings.IgnoreTemp,settings.IgnoreVolt);
+  bms.setSensors(settings.IgnoreTemp, settings.IgnoreVolt);
 }
 
 void loop()
@@ -606,6 +606,9 @@ void Prechargecon()
   }
   else
   {
+    digitalWrite(OUT1, LOW);
+    digitalWrite(OUT2, LOW);
+    digitalWrite(OUT4, LOW);
     bmsstatus = Ready;
     contctrl = 0;
   }
@@ -664,6 +667,11 @@ void contcon()
        SERIALCONSOLE.println("  ");
     */
 
+  }
+  if (contctrl == 0)
+  {
+    analogWrite(OUT5, 0);
+    analogWrite(OUT6, 0);
   }
 }
 
