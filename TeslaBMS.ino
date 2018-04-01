@@ -95,7 +95,8 @@ int highconv = 285;
 float currentact, RawCur;
 float ampsecond;
 unsigned long lasttime;
-unsigned long looptime;
+unsigned long looptime,canloop=0; //ms 
+unsigned long cantime = 60000; //ms 1 min = 60000 ms
 int currentsense = 14;
 int sensor = 1;
 
@@ -113,7 +114,7 @@ uint16_t socvolt[4] = {3100, 10, 4100, 90};
 //variables
 int incomingByte = 0;
 int x = 0;
-int debug = 1;
+int debug = 0;
 int candebug = 0; //view can frames
 int debugCur = 0;
 int menuload = 0;
@@ -321,6 +322,11 @@ void loop()
     //gaugeupdate();
     currentlimit();
     VEcan();
+  }
+    if (millis() - canloop > cantime)
+  {
+    canloop = millis();
+    cancheck();
   }
 }
 
@@ -554,7 +560,7 @@ void updateSOC()
 
   if (SOC < 0)
   {
-    //
+    SOC = 0; //reset SOC this way the can messages remain in range for other devices. Ampseconds will keep counting.
   }
 
   if (debug != 0)
@@ -1203,5 +1209,13 @@ void currentlimit()
       }
     }
   }
+}
+
+void cancheck()
+{
+  Serial.println(" ");
+  if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) Serial.println("MCP2515 Initialized Successfully!");
+  else Serial.println("Error Initializing MCP2515...");
+  CAN.setMode(MCP_NORMAL);
 }
 
