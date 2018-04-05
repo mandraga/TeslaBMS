@@ -5,7 +5,7 @@
 #include "Logger.h"
 #include <ADC.h>
 
-#include <mcp_can.h>
+#include <mcp2515.h>
 #include <SPI.h>
 
 BMSModuleManager bms;
@@ -83,7 +83,8 @@ char msgString[128];                        // Array to store serial string
 uint32_t inbox;
 signed long CANmilliamps;
 
-MCP_CAN CAN(10); //set CS pin for can controlelr
+struct can_frame canMsg;
+MCP2515 CAN1(10); //set CS pin for can controlelr
 
 
 //variables for current calulation
@@ -95,7 +96,7 @@ int highconv = 285;
 float currentact, RawCur;
 float ampsecond;
 unsigned long lasttime;
-unsigned long looptime,canloop=0; //ms 
+unsigned long looptime, canloop = 0; //ms
 unsigned long cantime = 60000; //ms 1 min = 60000 ms
 int currentsense = 14;
 int sensor = 1;
@@ -114,7 +115,7 @@ uint16_t socvolt[4] = {3100, 10, 4100, 90};
 //variables
 int incomingByte = 0;
 int x = 0;
-int debug = 0;
+int debug = 1;
 int candebug = 0; //view can frames
 int debugCur = 0;
 int menuload = 0;
@@ -162,10 +163,17 @@ void setup()
   pinMode(FUEL, OUTPUT);
   pinMode(led, OUTPUT);
 
-  if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) Serial.println("MCP2515 Initialized Successfully!");
-  else Serial.println("Error Initializing MCP2515...");
+  SPI.setClockDivider(SPI_CLOCK_DIV2);
+  SPI.begin();
 
-  CAN.setMode(MCP_NORMAL);
+  CAN1.reset();
+  CAN1.setBitrate(CAN_500KBPS);
+  CAN1.setNormalMode();
+
+  //if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) Serial.println("MCP2515 Initialized Successfully!");
+  //else Serial.println("Error Initializing MCP2515...");
+
+  //CAN.setMode(MCP_NORMAL);
 
   adc->setAveraging(16); // set number of averages
   adc->setResolution(16); // set bits of resolution
@@ -204,7 +212,7 @@ void setup()
 void loop()
 {
   //console.loop();
-  if (CAN.checkReceive() == 3)                        // If rx flag is set
+  if (CAN1.readMessage(&canMsg) == MCP2515::ERROR_OK)                        // If rx flag is set
   {
     canread();
   }
@@ -323,7 +331,7 @@ void loop()
     currentlimit();
     VEcan();
   }
-    if (millis() - canloop > cantime)
+  if (millis() - canloop > cantime)
   {
     canloop = millis();
     cancheck();
@@ -716,52 +724,130 @@ void calcur()
 
 void VEcan() //communication with Victron system over CAN
 {
-  mes[0] = lowByte(chargevoltage / 100);
-  mes[1] = highByte(chargevoltage / 100);
-  mes[2] = lowByte(chargecurrent);
-  mes[3] = highByte(chargecurrent);
-  mes[4] = lowByte(discurrent );
-  mes[5] = highByte(discurrent);
-  mes[6] = lowByte(disvoltage / 100);
-  mes[7] = highByte(disvoltage / 100);
+  canMsg.can_id  = 0x351;
+  canMsg.can_dlc = 8;
+  canMsg.data[0] = lowByte(chargevoltage / 100);
+  canMsg.data[1] = highByte(chargevoltage / 100);
+  canMsg.data[2] = lowByte(chargecurrent);
+  canMsg.data[3] = highByte(chargecurrent);
+  canMsg.data[4] = lowByte(discurrent );
+  canMsg.data[5] = highByte(discurrent);
+  canMsg.data[6] = lowByte(disvoltage / 100);
+  canMsg.data[7] = highByte(disvoltage / 100);
+  CAN1.sendMessage(&canMsg);
 
-  CAN.sendMsgBuf(0x351, 0, 8, mes);
+  /*
+    mes[0] = lowByte(chargevoltage / 100);
+    mes[1] = highByte(chargevoltage / 100);
+    mes[2] = lowByte(chargecurrent);
+    mes[3] = highByte(chargecurrent);
+    mes[4] = lowByte(discurrent );
+    mes[5] = highByte(discurrent);
+    mes[6] = lowByte(disvoltage / 100);
+    mes[7] = highByte(disvoltage / 100);
 
-  mes[0] = lowByte(SOC);
-  mes[1] = highByte(SOC);
-  mes[2] = lowByte(SOH);
-  mes[3] = highByte(SOH);
-  mes[4] = lowByte(SOC * 10);
-  mes[5] = highByte(SOC * 10);
-  mes[6] = 0;
-  mes[7] = 0;
+    CAN.sendMsgBuf(0x351, 0, 8, mes);
+  */
+  canMsg.can_id  = 0x355;
+  canMsg.can_dlc = 8;
+  canMsg.data[0] = lowByte(SOC);
+  canMsg.data[1] = highByte(SOC);
+  canMsg.data[2] = lowByte(SOH);
+  canMsg.data[3] = highByte(SOH);
+  canMsg.data[4] = lowByte(SOC * 10);
+  canMsg.data[5] = highByte(SOC * 10);
+  canMsg.data[6] = 0;
+  canMsg.data[7] = 0;
+  CAN1.sendMessage(&canMsg);
 
-  CAN.sendMsgBuf(0x355, 0, 8, mes);
+  /*
+    mes[0] = lowByte(SOC);
+    mes[1] = highByte(SOC);
+    mes[2] = lowByte(SOH);
+    mes[3] = highByte(SOH);
+    mes[4] = lowByte(SOC * 10);
+    mes[5] = highByte(SOC * 10);
+    mes[6] = 0;
+    mes[7] = 0;
 
-  mes[0] = lowByte(uint16_t(bms.getPackVoltage() * 100));
-  mes[1] = highByte(uint16_t(bms.getPackVoltage() * 100));
-  mes[2] = lowByte(long(currentact / 100));
-  mes[3] = highByte(long(currentact / 100));
-  mes[4] = lowByte(uint16_t(bms.getAvgTemperature() * 10));
-  mes[5] = highByte(uint16_t(bms.getAvgTemperature() * 10));
+    CAN.sendMsgBuf(0x355, 0, 8, mes);
+  */
+  canMsg.can_id  = 0x356;
+  canMsg.can_dlc = 8;
+  canMsg.data[0] = lowByte(uint16_t(bms.getPackVoltage() * 100));
+  canMsg.data[1] = highByte(uint16_t(bms.getPackVoltage() * 100));
+  canMsg.data[2] = lowByte(long(currentact / 100));
+  canMsg.data[3] = highByte(long(currentact / 100));
+  canMsg.data[4] = lowByte(uint16_t(bms.getAvgTemperature() * 10));
+  canMsg.data[5] = highByte(uint16_t(bms.getAvgTemperature() * 10));
+  canMsg.data[6] = 0;
+  canMsg.data[7] = 0;
+  CAN1.sendMessage(&canMsg);
+  /*
+      mes[0] = lowByte(uint16_t(bms.getPackVoltage() * 100));
+      mes[1] = highByte(uint16_t(bms.getPackVoltage() * 100));
+      mes[2] = lowByte(long(currentact / 100));
+      mes[3] = highByte(long(currentact / 100));
+      mes[4] = lowByte(uint16_t(bms.getAvgTemperature() * 10));
+      mes[5] = highByte(uint16_t(bms.getAvgTemperature() * 10));
 
-  CAN.sendMsgBuf(0x356, 0, 8, mes);
+      CAN.sendMsgBuf(0x356, 0, 8, mes);
+  */
+  delay(2);
+  canMsg.can_id  = 0x35A;
+  canMsg.can_dlc = 8;
+  canMsg.data[0] = alarm[0];//High temp  Low Voltage | High Voltage
+  canMsg.data[1] = alarm[1]; // High Discharge Current | Low Temperature
+  canMsg.data[2] = alarm[2]; //Internal Failure | High Charge current
+  canMsg.data[3] = alarm[3];// Cell Imbalance
+  canMsg.data[4] = 0;
+  canMsg.data[5] = 0;
+  canMsg.data[6] = 0;
+  canMsg.data[7] = 0;
+  CAN1.sendMessage(&canMsg);
+  /*
+      mes[0] = alarm[0];//High temp  Low Voltage | High Voltage
+      mes[1] = alarm[1]; // High Discharge Current | Low Temperature
+      mes[2] = alarm[2]; //Internal Failure | High Charge current
+      mes[3] = alarm[3];// Cell Imbalance
+      mes[4] = 0;
+      mes[5] = 0;
+      mes[6] = 0;
+      mes[7] = 0;
 
-  mes[0] = alarm[0];//High temp  Low Voltage | High Voltage
-  mes[1] = alarm[1]; // High Discharge Current | Low Temperature
-  mes[2] = alarm[2]; //Internal Failure | High Charge current
-  mes[3] = alarm[3];// Cell Imbalance
-  mes[4] = 0;
-  mes[5] = 0;
-  mes[6] = 0;
-  mes[7] = 0;
+      CAN.sendMsgBuf(0x35A, 0, 8, mes); //warnings and errors
+  */
 
-  CAN.sendMsgBuf(0x35A, 0, 8, mes); //warnings and errors
-  delay(5);
-  CAN.sendMsgBuf(0x35E, 0, 8, bmsname);
-  delay(5);
-  CAN.sendMsgBuf(0x370, 0, 8, bmsmanu);
+  canMsg.can_id  = 0x35E;
+  canMsg.can_dlc = 8;
+  canMsg.data[0] = bmsname[0];
+  canMsg.data[1] = bmsname[1];
+  canMsg.data[2] = bmsname[2];
+  canMsg.data[3] = bmsname[3];
+  canMsg.data[4] = bmsname[4];
+  canMsg.data[5] = bmsname[5];
+  canMsg.data[6] = bmsname[6];
+  canMsg.data[7] = bmsname[7];
+  CAN1.sendMessage(&canMsg);
 
+delay(2);
+  canMsg.can_id  = 0x370;
+  canMsg.can_dlc = 8;
+  canMsg.data[0] = bmsmanu[0];
+  canMsg.data[1] = bmsmanu[1];
+  canMsg.data[2] = bmsmanu[2];
+  canMsg.data[3] = bmsmanu[3];
+  canMsg.data[4] = bmsmanu[4];
+  canMsg.data[5] = bmsmanu[5];
+  canMsg.data[6] = bmsmanu[6];
+  canMsg.data[7] = bmsmanu[7];
+  CAN1.sendMessage(&canMsg);
+  /*
+    delay(5);
+    CAN.sendMsgBuf(0x35E, 0, 8, bmsname);
+    delay(5);
+    CAN.sendMsgBuf(0x370, 0, 8, bmsmanu);
+  */
 }
 
 void BMVmessage()//communication with the Victron Color Control System over VEdirect
@@ -1102,12 +1188,11 @@ void menu()
 
 void canread()
 {
-  CAN.readMsgBuf(&rxId, &len, rxBuf);      // Read data: len = data length, buf = data byte(s)
-
-  switch (rxId)
+  // Read data: len = data length, buf = data byte(s)
+  switch (canMsg.can_id)
   {
     case 0x3c2:
-      CAB300(rxBuf);
+      CAB300();
       break;
 
     default:
@@ -1137,11 +1222,11 @@ void canread()
   }
 }
 
-void CAB300(byte data[8])
+void CAB300()
 {
   for (int i = 0; i < 4; i++)
   {
-    inbox = (inbox << 8) | data[i];
+    inbox = (inbox << 8) | canMsg.data[i];
   }
   CANmilliamps = inbox;
   if (CANmilliamps > 0x80000000)
@@ -1213,9 +1298,14 @@ void currentlimit()
 
 void cancheck()
 {
-  Serial.println(" ");
-  if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) Serial.println("MCP2515 Initialized Successfully!");
-  else Serial.println("Error Initializing MCP2515...");
-  CAN.setMode(MCP_NORMAL);
+  CAN1.reset();
+  CAN1.setBitrate(CAN_500KBPS);
+  CAN1.setNormalMode();
+  /*
+    Serial.println(" ");
+    if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) Serial.println("MCP2515 Initialized Successfully!");
+    else Serial.println("Error Initializing MCP2515...");
+    CAN.setMode(MCP_NORMAL);
+  */
 }
 
