@@ -542,6 +542,7 @@ void getcurrent()
       lasttime = millis();
     }
   }
+  RawCur = 0;
 }
 
 void updateSOC()
@@ -736,18 +737,6 @@ void VEcan() //communication with Victron system over CAN
   canMsg.data[7] = highByte(disvoltage / 100);
   CAN1.sendMessage(&canMsg);
 
-  /*
-    mes[0] = lowByte(chargevoltage / 100);
-    mes[1] = highByte(chargevoltage / 100);
-    mes[2] = lowByte(chargecurrent);
-    mes[3] = highByte(chargecurrent);
-    mes[4] = lowByte(discurrent );
-    mes[5] = highByte(discurrent);
-    mes[6] = lowByte(disvoltage / 100);
-    mes[7] = highByte(disvoltage / 100);
-
-    CAN.sendMsgBuf(0x351, 0, 8, mes);
-  */
   canMsg.can_id  = 0x355;
   canMsg.can_dlc = 8;
   canMsg.data[0] = lowByte(SOC);
@@ -760,18 +749,6 @@ void VEcan() //communication with Victron system over CAN
   canMsg.data[7] = 0;
   CAN1.sendMessage(&canMsg);
 
-  /*
-    mes[0] = lowByte(SOC);
-    mes[1] = highByte(SOC);
-    mes[2] = lowByte(SOH);
-    mes[3] = highByte(SOH);
-    mes[4] = lowByte(SOC * 10);
-    mes[5] = highByte(SOC * 10);
-    mes[6] = 0;
-    mes[7] = 0;
-
-    CAN.sendMsgBuf(0x355, 0, 8, mes);
-  */
   canMsg.can_id  = 0x356;
   canMsg.can_dlc = 8;
   canMsg.data[0] = lowByte(uint16_t(bms.getPackVoltage() * 100));
@@ -783,16 +760,7 @@ void VEcan() //communication with Victron system over CAN
   canMsg.data[6] = 0;
   canMsg.data[7] = 0;
   CAN1.sendMessage(&canMsg);
-  /*
-      mes[0] = lowByte(uint16_t(bms.getPackVoltage() * 100));
-      mes[1] = highByte(uint16_t(bms.getPackVoltage() * 100));
-      mes[2] = lowByte(long(currentact / 100));
-      mes[3] = highByte(long(currentact / 100));
-      mes[4] = lowByte(uint16_t(bms.getAvgTemperature() * 10));
-      mes[5] = highByte(uint16_t(bms.getAvgTemperature() * 10));
 
-      CAN.sendMsgBuf(0x356, 0, 8, mes);
-  */
   delay(2);
   canMsg.can_id  = 0x35A;
   canMsg.can_dlc = 8;
@@ -805,18 +773,6 @@ void VEcan() //communication with Victron system over CAN
   canMsg.data[6] = 0;
   canMsg.data[7] = 0;
   CAN1.sendMessage(&canMsg);
-  /*
-      mes[0] = alarm[0];//High temp  Low Voltage | High Voltage
-      mes[1] = alarm[1]; // High Discharge Current | Low Temperature
-      mes[2] = alarm[2]; //Internal Failure | High Charge current
-      mes[3] = alarm[3];// Cell Imbalance
-      mes[4] = 0;
-      mes[5] = 0;
-      mes[6] = 0;
-      mes[7] = 0;
-
-      CAN.sendMsgBuf(0x35A, 0, 8, mes); //warnings and errors
-  */
 
   canMsg.can_id  = 0x35E;
   canMsg.can_dlc = 8;
@@ -830,7 +786,7 @@ void VEcan() //communication with Victron system over CAN
   canMsg.data[7] = bmsname[7];
   CAN1.sendMessage(&canMsg);
 
-delay(2);
+delay(1);
   canMsg.can_id  = 0x370;
   canMsg.can_dlc = 8;
   canMsg.data[0] = bmsmanu[0];
@@ -842,12 +798,6 @@ delay(2);
   canMsg.data[6] = bmsmanu[6];
   canMsg.data[7] = bmsmanu[7];
   CAN1.sendMessage(&canMsg);
-  /*
-    delay(5);
-    CAN.sendMsgBuf(0x35E, 0, 8, bmsname);
-    delay(5);
-    CAN.sendMsgBuf(0x370, 0, 8, bmsmanu);
-  */
 }
 
 void BMVmessage()//communication with the Victron Color Control System over VEdirect
@@ -1298,9 +1248,14 @@ void currentlimit()
 
 void cancheck()
 {
+  Serial.println();
+  Serial.print(CAN1.getStatus());
   CAN1.reset();
   CAN1.setBitrate(CAN_500KBPS);
   CAN1.setNormalMode();
+  Serial.print(" CAN reset");
+  Serial.print(CAN1.getStatus());
+  Serial.println();
   /*
     Serial.println(" ");
     if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) Serial.println("MCP2515 Initialized Successfully!");
