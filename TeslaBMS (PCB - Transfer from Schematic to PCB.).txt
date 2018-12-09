@@ -1,0 +1,56 @@
+Transfer from Schematic to PCB.
+-------------------------------
+
+Report Written:     Wednesday, April 18, 2018
+Design Path:        C:\Users\tomde\Documents\GitHub\TeslaBMS\TeslaBMS.pcb
+Design Title:       
+Created:            18-Apr-18 9:27:16 PM
+Last Saved:         18-Apr-18 9:27:25 PM
+Editing Time:       0 min
+Units:              thou (precision 0)
+
+Net class "default" was not defined, but has been created. Please check the values in the PCB design.
+Could not load component "R-78XX" package "R-78XX" into target design.
+Could not add "U1" component "R-78XX" package "R-78XX" to target design.
+Could not load component "MCP2510-I/SO" package "SOIC127P1034X264-18N" into target design.
+Could not add "U$2" component "MCP2510-I/SO" package "SOIC127P1034X264-18N" to target design.
+Could not load component "PCA82C250T/N4,112" package "SOIC127P600X175-8N" into target design.
+Could not add "U2" component "PCA82C250T/N4,112" package "SOIC127P600X175-8N" to target design.
+Could not load component "CRYSTALSM49" package "SM49" into target design.
+Could not add "Q1" component "CRYSTALSM49" package "SM49" to target design.
+PCB component "R1" does not have a pad numbered .
+Could not load component "BTS5440G" package "PG-DSO-28" into target design.
+Could not add "IC2" component "BTS5440G" package "PG-DSO-28" to target design.
+Could not load component "22-27-2041-04" package "6410-04" into target design.
+Could not add "J2" component "22-27-2041-04" package "6410-04" to target design.
+Could not add "J3" component "22-27-2041-04" package "6410-04" to target design.
+PCB component "C11" does not have a pad numbered .
+PCB component "C14" does not have a pad numbered .
+PCB component "C17" does not have a pad numbered .
+PCB component "R4" does not have a pad numbered .
+Could not load component "FDD4141TO252" package "TO252" into target design.
+Could not add "Q3" component "FDD4141TO252" package "TO252" to target design.
+Could not load component "NPN-TRANSISTOR_SOT23" package "SOT23" into target design.
+Could not add "Q4" component "NPN-TRANSISTOR_SOT23" package "SOT23" to target design.
+Could not load component "TEENSY_3.1_DIL" package "TEENSY3-DIL" into target design.
+Could not add "U$4" component "TEENSY_3.1_DIL" package "TEENSY3-DIL" to target design.
+PCB component "R6" does not have a pad numbered .
+Could not load component "ILD205" package "SOIC08" into target design.
+Could not add "OK2" component "ILD205" package "SOIC08" to target design.
+PCB component "R5" does not have a pad numbered .
+PCB component "R7" does not have a pad numbered .
+PCB component "R8" does not have a pad numbered .
+PCB component "R9" does not have a pad numbered .
+Could not load component "5566-8" package "5566-8" into target design.
+Could not add "X1" component "5566-8" package "5566-8" to target design.
+PCB component "R2" does not have a pad numbered .
+PCB component "R3" does not have a pad numbered .
+PCB component "R10" does not have a pad numbered .
+PCB component "R11" does not have a pad numbered .
+PCB component "R12" does not have a pad numbered .
+PCB component "R13" does not have a pad numbered .
+Could not load component "MOSFET-NGDS_TO220V" package "TO220V" into target design.
+Could not add "Q2" component "MOSFET-NGDS_TO220V" package "TO220V" to target design.
+Could not add "Q5" component "MOSFET-NGDS_TO220V" package "TO220V" to target design.
+
+End Of Report.
