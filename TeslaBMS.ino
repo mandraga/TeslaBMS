@@ -17,17 +17,27 @@ int CAP = 100; //battery size in Ah
 int Pstrings = 1; // strings in parallel used to divide voltage of pack
 
 //Simple BMS wiring//
+#ifdef USING_TEENSY4
+// A0 and A1 are needed for serial3 used on the Tesla BMS
+// Take them on IN1 and IN2
+// Some pins must be cut on the adapter
+const int ACUR2 = A2; // current 1
+const int ACUR1 = A3; // current 2
+const int IN1 = 9;    // input 1 - high active
+const int IN2 = 10;   // input 2- high active
+#else
 const int ACUR1 = A0; // current 1
 const int ACUR2 = A1; // current 2
-const int IN1 = 16; // input 1 - high active
-const int IN2 = 17; // input 2- high active
-const int OUT1 = 20;// output 1 - high active
-const int OUT2 = 21;// output 1 - high active
-const int OUT3 = 22;// output 1 - high active
-const int OUT4 = 23;// output 1 - high active
-const int OUT5 = 3;// output 1 - high active
-const int OUT6 = 4;// output 1 - high active
-const int FUEL = 5;// Fuel gauge pwm signal
+const int IN1 = 16;   // input 1 - high active
+const int IN2 = 17;   // input 2- high active
+#endif //USING_TEENSY4
+const int OUT1 = 20;  // output 1 - high active
+const int OUT2 = 21;  // output 1 - high active
+const int OUT3 = 22;  // output 1 - high active
+const int OUT4 = 23;  // output 1 - high active
+const int OUT5 = 3;   // output 1 - high active
+const int OUT6 = 4;   // output 1 - high active
+const int FUEL = 5;   // Fuel gauge pwm signal
 const int led = 13;
 const int BMBfault = 11;
 
@@ -62,7 +72,7 @@ int gaugelow = 255; //empty fuel gauge pwm
 int gaugehigh = 70; //full fuel gauge pwm
 
 //variables for VE driect bus comms
-char* myStrings[] = {"V", "14674", "I", "0", "CE", "-1", "SOC", "800", "TTG", "-1", "Alarm", "OFF", "Relay", "OFF", "AR", "0", "BMV", "600S", "FW", "212", "H1", "-3", "H2", "-3", "H3", "0", "H4", "0", "H5", "0", "H6", "-7", "H7", "13180", "H8", "14774", "H9", "137", "H10", "0", "H11", "0", "H12", "0"};
+const char* myStrings[] = {"V", "14674", "I", "0", "CE", "-1", "SOC", "800", "TTG", "-1", "Alarm", "OFF", "Relay", "OFF", "AR", "0", "BMV", "600S", "FW", "212", "H1", "-3", "H2", "-3", "H3", "0", "H4", "0", "H5", "0", "H6", "-7", "H7", "13180", "H8", "14774", "H9", "137", "H10", "0", "H11", "0", "H12", "0"};
 
 //variables for VE can
 uint16_t chargevoltage = 49100; //max charge voltage in mv
@@ -1123,7 +1133,7 @@ void menu()
     }
   }
 
-  if (incomingByte == 115 & menuload == 0)
+  if ((incomingByte == 115) & (menuload == 0))
   {
     SERIALCONSOLE.println();
     SERIALCONSOLE.println("MENU");
