@@ -3,7 +3,7 @@
 #include "config.h"
 #include "SerialConsole.h"
 #include "Logger.h"
-#include <ADC.h>
+#include <ADC.h> //https://github.com/pedvide/ADC
 
 #include <mcp2515.h>
 #include <SPI.h>
@@ -95,6 +95,7 @@ signed long CANmilliamps;
 
 struct can_frame canMsg;
 MCP2515 CAN1(10); //set CS pin for can controlelr
+
 
 
 //variables for current calulation
@@ -452,11 +453,11 @@ void getcurrent()
       value = (uint16_t)adc->analogReadContinuous(ADC_0); // the unsigned is necessary for 16 bits, otherwise values larger than 3.3/2 V are negative!
       if (debugCur != 0)
       {
-        SERIALCONSOLE.print(value * 3.3 / adc->getMaxValue(ADC_0), 5);
+        SERIALCONSOLE.print(value * 3.3 / adc->adc0->getMaxValue(), 5);
         SERIALCONSOLE.print("  ");
       }
-      RawCur = (float(value * 3300 / adc->getMaxValue(ADC_0)) - offset1) * 15.7;
-      if (value < 100 || value > (adc->getMaxValue(ADC_0) - 100))
+      RawCur = (float(value * 3300 / adc->adc0->getMaxValue()) - offset1) * 15.7;
+      if (value < 100 || value > (int)(adc->adc0->getMaxValue() - 100))
       {
         RawCur = 0;
       }
@@ -478,11 +479,11 @@ void getcurrent()
       value = (uint16_t)adc->analogReadContinuous(ADC_0); // the unsigned is necessary for 16 bits, otherwise values larger than 3.3/2 V are negative!
       if (debugCur != 0)
       {
-        SERIALCONSOLE.print(value * 3.3 / adc->getMaxValue(ADC_0), 5);
+        SERIALCONSOLE.print(value * 3.3 / adc->adc0->getMaxValue(), 5);
         SERIALCONSOLE.print("  ");
       }
-      RawCur = (float(value * 3300 / adc->getMaxValue(ADC_0)) - offset2) * highconv;
-      if (value < 100 || value > (adc->getMaxValue(ADC_0) - 100))
+      RawCur = (float(value * 3300 / adc->adc0->getMaxValue()) - offset2) * highconv;
+      if (value < 100 || value > (int)(adc->adc0->getMaxValue() - 100))
       {
         RawCur = 0;
       }
@@ -707,7 +708,7 @@ void calcur()
   SERIALCONSOLE.print(" Calibrating Current Offset ::::: ");
   while (x < 20)
   {
-    offset1 = offset1 + ((uint16_t)adc->analogReadContinuous(ADC_0) * 3300 / adc->getMaxValue(ADC_0));
+    offset1 = offset1 + ((uint16_t)adc->analogReadContinuous(ADC_0) * 3300 / adc->adc0->getMaxValue());
     SERIALCONSOLE.print(".");
     delay(100);
     x++;
@@ -722,7 +723,7 @@ void calcur()
   SERIALCONSOLE.print(" Calibrating Current Offset ::::: ");
   while (x < 20)
   {
-    offset2 = offset2 + ((uint16_t)adc->analogReadContinuous(ADC_0) * 3300 / adc->getMaxValue(ADC_0));
+    offset2 = offset2 + ((uint16_t)adc->analogReadContinuous(ADC_0) * 3300 / adc->adc0->getMaxValue());
     SERIALCONSOLE.print(".");
     delay(100);
     x++;
@@ -796,7 +797,7 @@ void VEcan() //communication with Victron system over CAN
   canMsg.data[7] = bmsname[7];
   CAN1.sendMessage(&canMsg);
 
-delay(1);
+  delay(1);
   canMsg.can_id  = 0x370;
   canMsg.can_dlc = 8;
   canMsg.data[0] = bmsmanu[0];
